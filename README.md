@@ -37,7 +37,7 @@ Portable, terminal-centered Neovim workflow with a repo-local Python toolchain, 
 ## ⚡ Quick Start
 
 ```bash
-git clone <repo> ~/.config/nvim
+git clone https://github.com/eltoto1219/eltoto-neovim.git ~/.config/nvim
 cd ~/.config/nvim
 ./scripts/setup.sh
 ```
@@ -60,7 +60,6 @@ This project turns Neovim into a portable personal workbench with:
 - fast project search with Telescope
 - semantic symbol rename through LSP for supported languages
 - filetype-aware run-current-file behavior via `<leader>e`, with session-only overrides through `:TermimalConfig`
-- generated shortcut documentation available in the README, in `SHORTCUTS.txt`, and inside Neovim through `:Shortcuts`
 - bootstrap scripts for fonts, dependencies, Mason installs, Python setup, and plugin sync
 - a health command and a check script so the setup can verify itself after changes or on a fresh machine
 
@@ -75,7 +74,6 @@ Most configs stop at plugins and keymaps. This one goes further:
 - 🗂️ It has separate, deliberate workflows for files, terminals, and persistent tmux-backed processes.
 - ▶️ It can run the current file intelligently by filetype instead of making you context-switch into another shell.
 - 🤖 It treats AI as a tool, not as the center of the editor. Copilot stays lightweight, while Avante now has a real workflow with history switching, tabline visibility, chat lifecycle actions, polished prompts, and terminal round-trip behavior.
-- 🧭 It is discoverable. Shortcuts are generated from a single source of truth and show up in the README, `SHORTCUTS.txt`, and inside Neovim.
 - 🩺 It is maintainable. `:EltotoHealth` and `./scripts/check.sh` give you a direct way to verify the setup instead of guessing.
 - 🎛️ It has a real UI layer. The tabline, terminal names, and Avante session views reflect how the workflow actually works, not just what Neovim happens to expose by default.
 
@@ -94,11 +92,8 @@ That is what makes it feel like a workbench instead of a pile of plugins.
 
 ## 🧰 Core Capabilities
 
-- Bootstrap a fresh machine with `./scripts/setup.sh`
 - Install a Nerd Font with `./scripts/font_setup.sh`
 - Run a full config check with `./scripts/check.sh`
-- Inspect config health with `:EltotoHealth`
-- Inspect AI auth and model state with `:AIStatus`
 - Open the generated shortcut popup with `:Shortcuts` or `<leader>?`
 - Configure session-only filetype runner overrides with `:TermimalConfig`
 - Navigate regular buffers and terminal buffers with separate rules
@@ -139,12 +134,6 @@ A common workflow in this config looks like this:
 The point is that editing, running code, long-lived processes, and AI assistance all live in one coherent workflow.
 
 ## 🚀 Bootstrap
-
-```bash
-git clone <repo> ~/.config/nvim
-cd ~/.config/nvim
-./scripts/setup.sh
-```
 
 The setup script will:
 
