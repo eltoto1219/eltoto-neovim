@@ -1,0 +1,163 @@
+Eltoto Neovim Shortcuts
+=======================
+
+General
+- <leader>? : open the shortcuts popup
+- :AIStatus : show OpenAI key visibility, Avante model, Codex availability, and Copilot status
+- :EltotoHealth : run the Neovim health check for this config
+- :TermimalConfig : open the runner popup for the current filetype and set default or session-only custom <leader>e behavior
+- :TerminalRename : rename the current terminal buffer, or reset to default numbering with an empty name
+- :TerminalProcesses : open the persistent terminal picker
+- :TerminalProcessNew : create a new persistent terminal process
+- :TerminalProcessKill : kill a persistent terminal process
+- :TerminalProcessKillAll : kill all persistent terminal processes
+- :TerminalProcessAttachLast : attach the last persistent terminal process
+- :ShortcutsSync : regenerate SHORTCUTS.txt and the README shortcuts section
+
+AI
+- Avante is configured to use OpenAI with the gpt-5.4 model.
+- Copilot handles inline completions separately and authenticates through :Copilot setup.
+- This config does not currently force a specific Copilot inline model from Neovim.
+- <leader>aa : open Avante ask
+- <leader>ac : open Avante chat
+- <leader>at : toggle the Avante sidebar, or create a new chat if none exists
+- visual <leader>aa : ask Avante about the current visual selection
+- visual <leader>ae : send the current visual selection to Avante edit
+- visual <leader>as : send the current visual selection to Avante edit
+- Avante window <leader>an : start a new Avante chat
+- Avante window <leader>ah : open the Avante chat history picker
+- Avante window <leader>ac : clear the current Avante chat history
+- Avante window <leader>ad : delete the currently active Avante chat
+- Avante window <leader>aD : delete all saved Avante chats for the current project
+- Avante window <leader>; : switch to the next Avante chat history entry
+- Avante window <leader>, : switch to the previous Avante chat history entry
+- Avante window <leader>z : toggle the Avante layout between split and full view
+- Avante prompt <C-s> : submit the current Avante prompt or edit request
+- insert <C-]> : accept the current Copilot inline suggestion
+
+Files and Search
+- <leader>pf : Telescope file picker
+- <leader>ps : Telescope git-tracked file picker
+- <leader>pg : grep for an entered string with Telescope
+- <leader>bb : Telescope buffer picker
+- <leader>pv : toggle the file explorer in a left vertical split
+- <leader>w : save the current file
+- qa : force quit the current window
+- qq : close the current window if split, otherwise close the current buffer or quit Neovim when only terminal buffers remain
+- <leader>ba : jump to the alternate or last file buffer
+
+Regular Buffer Navigation
+- <leader>; : jump to the next regular file buffer
+- <leader>, : jump to the previous regular file buffer
+
+Terminal Workflow
+- <leader>t : toggle between the current file buffer and the last terminal buffer you used
+- <leader>T : always open a new terminal buffer
+- terminal <leader>; : jump to the next terminal buffer and stay in terminal input mode
+- terminal <leader>, : jump to the previous terminal buffer and stay in terminal input mode
+- terminal <leader>1 : jump to buffer 1 from a terminal
+- terminal <leader>r : rename the current terminal buffer
+- terminal qq : close the current window if split, otherwise close the current terminal buffer or quit Neovim if no file buffers remain
+- terminal jk : leave terminal input mode
+- terminal buffers : default to T:1, T:2, T:3, ... and may be manually renamed
+- :b T:1 : jump directly to a named terminal buffer
+
+Persistent Processes
+- Persistent processes use tmux as a hidden backend so they survive terminal buffer closes and Neovim restarts.
+- Closing the attached terminal buffer detaches from the process; it does not kill the tmux session.
+- <leader>pp : open the persistent terminal picker and attach to a selected process
+- <leader>pn : create a new persistent terminal process
+- <leader>pa : attach the last persistent terminal process
+- <leader>pk : kill the current persistent terminal process, or select one to kill
+- <leader>pK : kill all persistent terminal processes at once
+
+Run Current File
+- <leader>e uses the current buffer filetype to pick a runner.
+- Examples: python -> python3, lua -> lua, javascript -> node, typescript -> tsx, shell -> bash, go -> go run.
+- Non-runnable filetypes like json, yaml, html, and markdown show a warning instead of trying to execute.
+- Custom runner commands set through :TermimalConfig last only for the current Neovim session.
+- <leader>e : open or reuse a terminal and run the current file with the resolved filetype runner
+
+Windows and Layout
+- <leader>h : move to the window on the left
+- <leader>j : move to the window below
+- <leader>k : move to the window above
+- <leader>l : move to the window on the right
+- <leader>sv : create a vertical split
+- <leader>sh : create a horizontal split
+- <leader>o : keep only the current window and close all other splits
+- <leader>= : increase current window height
+- <leader>- : decrease current window height
+- W= : increase current window width
+- W- : decrease current window width
+
+Editing
+- gf : open the file path under the cursor
+- gF : open the file path under the cursor and jump to its line number
+- insert jk : leave insert mode and land one character to the right
+- select jk : leave select mode and land one character to the right
+- visual <space> : leave visual mode
+- visual J : move selected lines down
+- visual K : move selected lines up
+- <space> : toggle search highlighting on and off
+- <leader>c : toggle fold under cursor
+- <leader>' : wrap current word in single quotes
+- <leader>" : wrap current word in double quotes
+- W' : wrap current WORD in single quotes
+- W" : wrap current WORD in double quotes
+- gu : swap case on the current word
+- gU : swap case on the current WORD
+- dw : delete one word
+- d2w : delete two words
+- d3w : delete three words
+- d4w : delete four words
+- yw : yank one word
+- cw : change one word
+- <C-z> : disabled
+
+Git and Project Marks
+- Use :Git to open Fugitive status. Inside :Git status, use - to stage or unstage, = to inspect diffs, cc to commit, ca to amend, p to push, P to pull, and q to close the window.
+- Useful commands: :Git push, :Git pull, :Git fetch, :Git blame, :Gdiffsplit, :Gvdiffsplit, :Git log -- %, :0Gclog, :Git rebase -i HEAD~N.
+- A git hunk is one contiguous changed block in the current file compared with Git.
+- :Git : open Fugitive git status
+- ]h : jump to the next git hunk
+- [h : jump to the previous git hunk
+- <leader>gs : stage the current git hunk
+- <leader>gr : reset the current git hunk
+- <leader>gp : preview the current git hunk
+- <leader>gb : show Git blame for the current line
+- <leader>m : add current file to Harpoon
+- <C-e> : toggle Harpoon quick menu
+- <C-h> : jump to Harpoon file 1
+- <C-j> : jump to Harpoon file 2
+- <C-k> : jump to Harpoon file 3
+- <C-l> : jump to Harpoon file 4
+
+Messages and Diagnostics
+- <leader>nd : dismiss Noice messages
+- <leader>xx : toggle Trouble
+- <leader>xw : Trouble workspace diagnostics
+- <leader>xd : Trouble document diagnostics
+- <leader>xq : Trouble quickfix list
+- <leader>x] : Trouble location list
+- <leader>xt : TODO comments in Trouble
+- ]d : jump to the next diagnostic or Trouble item
+- [d : jump to the previous diagnostic or Trouble item
+- ]t : jump to the next TODO comment
+- [t : jump to the previous TODO comment
+- <leader>pt : TODO comments in Telescope
+
+LSP and Diagnostics
+- These mappings only exist in buffers with an attached LSP client.
+- Use <leader>vn for semantic symbol rename when you want only references to the current symbol changed.
+- gd : go to definition
+- K : hover documentation
+- <leader>vw : workspace symbols
+- <leader>vd : open diagnostic float
+- <leader>vc : code action
+- <leader>vr : references
+- <leader>vn : rename the symbol under the cursor across project references
+- <leader>r : show diagnostic float
+- <leader>q : send diagnostics to the location list
+- insert <C-h> : signature help
+
