@@ -8,6 +8,7 @@ FONT_SCRIPT="$ROOT_DIR/scripts/font_setup.sh"
 OS_NAME="$(uname -s)"
 PACKAGE_MANAGER=""
 PYTHON_BIN=""
+INSTALL_ALL_DEPENDENCIES=0
 
 warn() {
     printf 'warning: %s\n' "$1" >&2
@@ -152,11 +153,14 @@ ensure_vim_alias_in_shell_rcs() {
 }
 
 maybe_run_copilot_setup() {
+    local choice
+
     if ! command_exists nvim; then
         return
     fi
 
-    if ! prompt_yes_no "Run :Copilot setup now?"; then
+    choice="$(prompt_yes_no "Run :Copilot setup now?")"
+    if [[ "$choice" != "yes" ]]; then
         return
     fi
 
@@ -255,6 +259,7 @@ packages_for_tool() {
         brew:tmux) echo "tmux" ;;
         brew:node) echo "node" ;;
         brew:gcc) echo "gcc" ;;
+        brew:compiler) echo "gcc" ;;
         brew:make) echo "make" ;;
         apt-get:git) echo "git" ;;
         apt-get:nvim) echo "neovim" ;;
@@ -269,6 +274,7 @@ packages_for_tool() {
         apt-get:tmux) echo "tmux" ;;
         apt-get:node) echo "nodejs npm" ;;
         apt-get:gcc) echo "build-essential" ;;
+        apt-get:compiler) echo "build-essential" ;;
         apt-get:make) echo "build-essential" ;;
         dnf:git|yum:git) echo "git" ;;
         dnf:nvim|yum:nvim) echo "neovim" ;;
@@ -283,6 +289,7 @@ packages_for_tool() {
         dnf:tmux|yum:tmux) echo "tmux" ;;
         dnf:node|yum:node) echo "nodejs npm" ;;
         dnf:gcc|yum:gcc) echo "gcc make" ;;
+        dnf:compiler|yum:compiler) echo "gcc make" ;;
         dnf:make|yum:make) echo "make" ;;
         pacman:git) echo "git" ;;
         pacman:nvim) echo "neovim" ;;
@@ -297,6 +304,7 @@ packages_for_tool() {
         pacman:tmux) echo "tmux" ;;
         pacman:node) echo "nodejs npm" ;;
         pacman:gcc) echo "base-devel" ;;
+        pacman:compiler) echo "base-devel" ;;
         pacman:make) echo "base-devel" ;;
         zypper:git) echo "git" ;;
         zypper:nvim) echo "neovim" ;;
@@ -311,6 +319,7 @@ packages_for_tool() {
         zypper:tmux) echo "tmux" ;;
         zypper:node) echo "nodejs npm" ;;
         zypper:gcc) echo "gcc make" ;;
+        zypper:compiler) echo "gcc make" ;;
         zypper:make) echo "make" ;;
         apk:git) echo "git" ;;
         apk:nvim) echo "neovim" ;;
@@ -325,6 +334,7 @@ packages_for_tool() {
         apk:tmux) echo "tmux" ;;
         apk:node) echo "nodejs npm" ;;
         apk:gcc) echo "build-base" ;;
+        apk:compiler) echo "build-base" ;;
         apk:make) echo "build-base" ;;
         *)
             echo ""
@@ -369,53 +379,81 @@ install_hint() {
     esac
 }
 
+tool_label() {
+    local tool="$1"
+
+    case "$tool" in
+        curl_or_wget) echo "curl or wget" ;;
+        compiler) echo "gcc or clang" ;;
+        *) echo "$tool" ;;
+    esac
+}
+
 prompt_yes_no() {
     local message="$1"
     local reply
 
     if [[ ! -t 0 ]]; then
-        return 1
-    fi
-
-    read -r -p "$message [Y/n] " reply
-    [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]]
-}
-
-offer_install_tools() {
-    local tools=("$@")
-    local packages=()
-    local missing_package=""
-
-    if ((${#tools[@]} == 0)); then
+        echo "no"
         return 0
     fi
 
+    read -r -p "$message [Y/n/a] " reply
+
+    case "$reply" in
+        ""|y|Y|yes|YES|Yes)
+            echo "yes"
+            ;;
+        a|A|all|ALL|All)
+            echo "all"
+            ;;
+        *)
+            echo "no"
+            ;;
+    esac
+}
+
+maybe_install_tool() {
+    local tool="$1"
+    local package_names
+    local -a packages=()
+
     PACKAGE_MANAGER="${PACKAGE_MANAGER:-$(detect_package_manager)}"
     if [[ -z "$PACKAGE_MANAGER" ]]; then
+        echo "Could not detect a supported package manager for $(tool_label "$tool")."
+        echo "  hint: $(install_hint "$tool")"
         return 1
     fi
 
-    for tool in "${tools[@]}"; do
-        local package_names
-        package_names="$(packages_for_tool "$PACKAGE_MANAGER" "$tool")"
-        if [[ -z "$package_names" ]]; then
-            missing_package="$tool"
-            break
-        fi
-        for package_name in $package_names; do
-            packages+=("$package_name")
-        done
+    package_names="$(packages_for_tool "$PACKAGE_MANAGER" "$tool")"
+    if [[ -z "$package_names" ]]; then
+        echo "No automatic install mapping is configured for $(tool_label "$tool")."
+        echo "  hint: $(install_hint "$tool")"
+        return 1
+    fi
+
+    for package_name in $package_names; do
+        packages+=("$package_name")
     done
 
-    if [[ -n "$missing_package" ]]; then
-        return 1
+    if ((INSTALL_ALL_DEPENDENCIES)); then
+        :
+    else
+        local choice
+        choice="$(prompt_yes_no "Install missing dependency '$(tool_label "$tool")' now using ${PACKAGE_MANAGER}?")"
+        case "$choice" in
+            all)
+                INSTALL_ALL_DEPENDENCIES=1
+                ;;
+            yes)
+                ;;
+            *)
+                return 1
+                ;;
+        esac
     fi
 
-    if ! prompt_yes_no "Install missing dependencies now using ${PACKAGE_MANAGER}?"; then
-        return 1
-    fi
-
-    echo "Installing packages: ${packages[*]}"
+    echo "Installing packages for $(tool_label "$tool"): ${packages[*]}"
     run_package_install "$PACKAGE_MANAGER" "${packages[@]}"
     refresh_shell
     return 0
@@ -486,21 +524,24 @@ preflight() {
     fi
 
     if ((${#missing_required[@]} > 0)); then
-        if offer_install_tools "${missing_required[@]}"; then
-            PYTHON_BIN="$(find_python || true)"
-            missing_required=()
-            if ! command_exists git; then
-                missing_required+=("git")
-            fi
-            if ! command_exists python3 && ! command_exists python; then
-                missing_required+=("python3")
-            fi
-            if ! command_exists curl && ! command_exists wget; then
-                missing_required+=("curl_or_wget")
-            fi
-            if ! command_exists unzip; then
-                missing_required+=("unzip")
-            fi
+        local item
+        for item in "${missing_required[@]}"; do
+            maybe_install_tool "$item" || true
+        done
+
+        PYTHON_BIN="$(find_python || true)"
+        missing_required=()
+        if ! command_exists git; then
+            missing_required+=("git")
+        fi
+        if ! command_exists python3 && ! command_exists python; then
+            missing_required+=("python3")
+        fi
+        if ! command_exists curl && ! command_exists wget; then
+            missing_required+=("curl_or_wget")
+        fi
+        if ! command_exists unzip; then
+            missing_required+=("unzip")
         fi
     fi
 
@@ -524,9 +565,8 @@ preflight() {
 
     PYTHON_BIN="${PYTHON_BIN:-$(find_python || true)}"
     if ! "$PYTHON_BIN" -m venv --help >/dev/null 2>&1; then
-        if offer_install_tools "venv"; then
-            PYTHON_BIN="$(find_python || true)"
-        fi
+        maybe_install_tool "venv" || true
+        PYTHON_BIN="$(find_python || true)"
     fi
 
     if ! "$PYTHON_BIN" -m venv --help >/dev/null 2>&1; then
@@ -550,19 +590,9 @@ preflight() {
             esac
         done
 
-        local optional_installable=()
         for item in "${missing_optional[@]}"; do
-            case "$item" in
-                compiler)
-                    optional_installable+=("gcc")
-                    ;;
-                *)
-                    optional_installable+=("$item")
-                    ;;
-            esac
+            maybe_install_tool "$item" || true
         done
-
-        offer_install_tools "${optional_installable[@]}" || true
     fi
 }
 

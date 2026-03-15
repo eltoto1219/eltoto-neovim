@@ -138,7 +138,7 @@ The point is that editing, running code, long-lived processes, and AI assistance
 The setup script will:
 
 - run dependency preflight checks
-- offer to install missing system dependencies on Linux or macOS
+- prompt per missing system dependency and install only the ones you approve, with `a` available to install all remaining prompts at once
 - create a repo-local `.venv`
 - install Python packages from `reqs.txt`
 - add an `OPENAI_API_KEY` placeholder to your shell rc file if neither your current environment nor that rc file already defines it
@@ -166,7 +166,7 @@ out of your project virtualenvs.
 
 ## 📦 Required Dependencies
 
-The setup script checks for and can offer to install:
+The setup script checks for and can prompt to install, with `a` available to install all remaining prompts at once:
 
 - `git`
 - `python3` or `python`
@@ -174,7 +174,7 @@ The setup script checks for and can offer to install:
 - `curl` or `wget`
 - `unzip`
 
-It also checks for these recommended tools:
+It also checks for these recommended tools, and prompts to install them when it can:
 
 - `nvim`
 - `tar`
