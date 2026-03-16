@@ -1,5 +1,6 @@
 local M = {}
 local fullscreen_state_by_tab = {}
+local hidden_tree_state_by_tab = {}
 local AVANTE_TITLE_MODEL = "gpt-4.1-mini"
 
 local AVANTE_FILETYPES = {
@@ -45,6 +46,44 @@ end
 
 local function current_tab()
     return vim.api.nvim_get_current_tabpage()
+end
+
+local function tree_api()
+    local ok, api = pcall(require, "nvim-tree.api")
+    return ok and api or nil
+end
+
+local function is_tree_window(winid)
+    if not is_valid_win(winid) then
+        return false
+    end
+
+    local bufnr = vim.api.nvim_win_get_buf(winid)
+    return vim.bo[bufnr].filetype == "NvimTree"
+end
+
+local function ensure_sidebar_code_window(sidebar)
+    if not sidebar or not sidebar:is_open() then
+        return
+    end
+
+    local current = sidebar.code and sidebar.code.winid or nil
+    if is_valid_win(current) and not sidebar:is_sidebar_winid(current) and not is_tree_window(current) then
+        return
+    end
+
+    local replacement = nil
+    for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(sidebar.id)) do
+        if is_valid_win(winid) and not sidebar:is_sidebar_winid(winid) and not is_tree_window(winid) then
+            replacement = winid
+            break
+        end
+    end
+
+    if replacement then
+        sidebar.code.winid = replacement
+        sidebar.code.bufnr = vim.api.nvim_win_get_buf(replacement)
+    end
 end
 
 local function container_height(container)
@@ -155,6 +194,47 @@ end
 
 local function remember_fullscreen_state(sidebar)
     fullscreen_state_by_tab[current_tab()] = sidebar and sidebar.is_in_full_view == true or false
+end
+
+local function hide_tree_for_fullscreen()
+    local api = tree_api()
+    if not api or not api.tree.is_visible() then
+        return
+    end
+
+    local tree_winid = api.tree.winid and api.tree.winid() or nil
+    hidden_tree_state_by_tab[current_tab()] = {
+        width = is_valid_win(tree_winid) and vim.api.nvim_win_get_width(tree_winid) or nil,
+    }
+    pcall(api.tree.close)
+end
+
+local function restore_tree_after_fullscreen(sidebar)
+    local tree_state = hidden_tree_state_by_tab[current_tab()]
+    if type(tree_state) ~= "table" then
+        return
+    end
+
+    hidden_tree_state_by_tab[current_tab()] = nil
+
+    local api = tree_api()
+    if not api or api.tree.is_visible() then
+        return
+    end
+
+    local current_win = vim.api.nvim_get_current_win()
+    pcall(api.tree.open, { find_file = true, focus = false })
+    if tree_state.width then
+        pcall(api.tree.resize, { absolute = tree_state.width })
+    end
+    if vim.api.nvim_win_is_valid(current_win) then
+        vim.api.nvim_set_current_win(current_win)
+    end
+    if sidebar and sidebar:is_open() then
+        pcall(function()
+            sidebar:adjust_layout()
+        end)
+    end
 end
 
 local function restore_fullscreen_state(sidebar)
@@ -844,6 +924,7 @@ local function apply_sidebar_behavior_patches()
     local original_add_history_messages = sidebar.add_history_messages
     local original_get_message_lines = sidebar.get_message_lines
     local original_render_state = sidebar.render_state
+    local original_toggle_code_window = sidebar.toggle_code_window
 
     sidebar.update_content = function(self, content, opts)
         if content == "New chat" then
@@ -907,6 +988,35 @@ local function apply_sidebar_behavior_patches()
         end
 
         return original_render_state(self)
+    end
+
+    sidebar.toggle_code_window = function(self, ...)
+        local entering_fullscreen = self.is_in_full_view ~= true
+        if entering_fullscreen then
+            ensure_sidebar_code_window(self)
+            hide_tree_for_fullscreen()
+            ensure_sidebar_code_window(self)
+        end
+
+        local result = original_toggle_code_window(self, ...)
+
+        if self.is_in_full_view then
+            vim.schedule(function()
+                if not self:is_open() then
+                    return
+                end
+
+                pcall(function()
+                    self:adjust_layout()
+                end)
+            end)
+        else
+            vim.schedule(function()
+                restore_tree_after_fullscreen(self)
+            end)
+        end
+
+        return result
     end
 
     vim.g.eltoto_avante_sidebar_behavior_patches = true
