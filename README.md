@@ -193,7 +193,7 @@ This config uses two separate auth paths:
 
 Recommended model choices:
 
-- Avante / OpenAI chat: `gpt-5.4`
+- Avante / OpenAI chat: `gpt-5.3-codex`
 - Copilot inline completions: keep the default Copilot inline model, because `copilot.vim` does not expose a repo-local per-model inline selector here
 
 This repo does not store API keys. Keep `OPENAI_API_KEY` in your shell environment so both terminal Codex and Neovim can use the same credential.
@@ -326,7 +326,7 @@ General
 - `:ShortcutsSync`: regenerate SHORTCUTS.txt and the README shortcuts section
 
 AI
-- Avante is configured to use OpenAI with the gpt-5.4 model.
+- Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.
 - Copilot handles inline completions separately and authenticates through :Copilot setup.
 - This config does not currently force a specific Copilot inline model from Neovim.
 - `<leader>aa`: open Avante ask

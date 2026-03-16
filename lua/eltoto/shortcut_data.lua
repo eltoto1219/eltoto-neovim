@@ -22,7 +22,7 @@ M.sections = {
     {
         title = "AI",
         notes = {
-            "Avante is configured to use OpenAI with the gpt-5.4 model.",
+            "Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.",
             "Copilot handles inline completions separately and authenticates through :Copilot setup.",
             "This config does not currently force a specific Copilot inline model from Neovim.",
         },

@@ -1,6 +1,6 @@
 local M = {}
 
-M.codex_model = "gpt-5.4"
+M.codex_model = "gpt-5.3-codex"
 
 local function openai_key_status()
     local value = vim.env.OPENAI_API_KEY or ""

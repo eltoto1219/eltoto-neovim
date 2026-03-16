@@ -211,6 +211,21 @@ local function restore_avante_return_state(current_terminal_bufnr)
     return true
 end
 
+local function prepare_window_for_terminal_open()
+    local current = vim.api.nvim_get_current_buf()
+    if eltoto_avante.is_sidebar_buffer(current) then
+        return capture_avante_return_state()
+    end
+
+    local sidebar = eltoto_avante.get_sidebar(false)
+    local current_win = vim.api.nvim_get_current_win()
+    if sidebar and sidebar:is_open() and sidebar.code and sidebar.code.winid == current_win then
+        return capture_avante_return_state()
+    end
+
+    return nil
+end
+
 local function with_current_window_buffer_unlocked(callback)
     local current_win = vim.api.nvim_get_current_win()
     if not vim.api.nvim_win_is_valid(current_win) then
@@ -250,15 +265,22 @@ local function safe_enew()
 end
 
 function M.open_new()
+    local avante_state = prepare_window_for_terminal_open()
     hide_tree_for_terminal()
     if not safe_enew() then
         return
     end
     vim.fn.termopen(vim.o.shell, { env = env.terminal_env() })
+    local bufnr = vim.api.nvim_get_current_buf()
+    if avante_state and M.is_terminal(bufnr) then
+        avante_state.term_bufnr = bufnr
+        avante_return_state_by_tab[current_tab()] = avante_state
+    end
     enter_insert()
 end
 
 function M.open_command(command, label)
+    local avante_state = prepare_window_for_terminal_open()
     hide_tree_for_terminal()
     if not safe_enew() then
         return nil
@@ -271,6 +293,10 @@ function M.open_command(command, label)
 
     vim.fn.termopen(command, { env = env.terminal_env() })
     vim.schedule(M.refresh_names)
+    if avante_state and M.is_terminal(bufnr) then
+        avante_state.term_bufnr = bufnr
+        avante_return_state_by_tab[current_tab()] = avante_state
+    end
     enter_insert()
 
     return bufnr

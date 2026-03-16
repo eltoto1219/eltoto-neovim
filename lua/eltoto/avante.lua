@@ -150,6 +150,97 @@ local function refresh_sidebar(sidebar, previous_focus)
     M.refresh_lualine()
 end
 
+local function extract_text_content(content)
+    if type(content) == "string" then
+        return content
+    end
+
+    if type(content) ~= "table" then
+        return nil
+    end
+
+    local parts = {}
+    for _, item in ipairs(content) do
+        if type(item) == "string" then
+            parts[#parts + 1] = item
+        elseif type(item) == "table" then
+            if item.type == "text" and type(item.text) == "string" then
+                parts[#parts + 1] = item.text
+            elseif item.type == "text" and type(item.content) == "string" then
+                parts[#parts + 1] = item.content
+            end
+        end
+    end
+
+    local text = table.concat(parts)
+    if text == "" then
+        return nil
+    end
+
+    return text
+end
+
+local function sanitize_history_message(message)
+    if type(message) ~= "table" or type(message.message) ~= "table" then
+        return nil, true
+    end
+
+    local role = message.message.role
+    if role ~= "user" and role ~= "assistant" then
+        return nil, true
+    end
+
+    local text = extract_text_content(message.message.content)
+    if text == nil then
+        return nil, true
+    end
+
+    if message.message.content ~= text then
+        message.message.content = text
+        return message, true
+    end
+
+    return message, false
+end
+
+local function apply_history_sanitize_patch()
+    if vim.g.eltoto_avante_history_sanitize_patch then
+        return
+    end
+
+    local path = require("avante.path")
+    local original_load = path.history.load
+
+    path.history.load = function(bufnr, filename)
+        local history = original_load(bufnr, filename)
+        if type(history) ~= "table" or type(history.messages) ~= "table" then
+            return history
+        end
+
+        local sanitized = {}
+        local changed = false
+
+        for _, message in ipairs(history.messages) do
+            local cleaned, message_changed = sanitize_history_message(message)
+            if cleaned then
+                sanitized[#sanitized + 1] = cleaned
+            end
+            if message_changed then
+                changed = true
+            end
+        end
+
+        if changed then
+            history.messages = sanitized
+            path.history.save(bufnr, history)
+        end
+
+        return history
+    end
+
+    vim.g.eltoto_avante_history_sanitize_patch = true
+end
+
 local function apply_history(sidebar, filename, previous_focus)
     local target_buf = code_bufnr(sidebar)
     if not target_buf then
@@ -219,8 +310,16 @@ function M.delete_current_history()
         return
     end
 
-    require("avante.path").history.delete(target_buf, current_filename)
-    refresh_sidebar(sidebar, focus_kind(sidebar))
+    local path = require("avante.path")
+    path.history.delete(target_buf, current_filename)
+
+    if #path.history.list(target_buf) == 0 then
+        sidebar:close({ goto_code_win = true })
+        M.refresh_lualine()
+    else
+        refresh_sidebar(sidebar, focus_kind(sidebar))
+    end
+
     vim.notify("Deleted current Avante chat")
 end
 
@@ -545,6 +644,7 @@ end
 function M.setup(codex_model)
     require("avante").setup({
         provider = "openai",
+        mode = "agentic",
         behaviour = {
             auto_suggestions = false,
             auto_set_keymaps = false,
@@ -563,18 +663,18 @@ function M.setup(codex_model)
         },
         windows = {
             input = {
-                height = 14,
+                height = 10,
             },
         },
         providers = {
             openai = {
                 model = codex_model,
-                use_response_api = true,
             },
         },
     })
 
     apply_debounce_patch()
+    apply_history_sanitize_patch()
     hide_sidebar_input_hint()
     apply_prompt_input_patch()
     apply_history_prompt_patch()

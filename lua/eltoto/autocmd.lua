@@ -44,9 +44,28 @@ vim.api.nvim_create_autocmd({ "TermOpen", "TermEnter", "BufEnter" }, {
     group = term_group,
     pattern = "term://*",
     callback = function()
+        local ok, eltoto_avante = pcall(require, "eltoto.avante")
+        if ok then
+            local sidebar = eltoto_avante.get_sidebar(false)
+            if sidebar and sidebar:is_open() then
+                sidebar:close({ goto_code_win = false })
+            end
+        end
+
         vim.wo.relativenumber = false
         vim.wo.number = false
         vim.opt_local.signcolumn = "no"
+    end,
+})
+
+vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
+    group = filetype_group,
+    pattern = "*",
+    callback = function(event)
+        if vim.bo[event.buf].buftype == "" then
+            vim.wo.number = true
+            vim.wo.relativenumber = true
+        end
     end,
 })
 

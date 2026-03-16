@@ -15,7 +15,7 @@ General
 - :ShortcutsSync : regenerate SHORTCUTS.txt and the README shortcuts section
 
 AI
-- Avante is configured to use OpenAI with the gpt-5.4 model.
+- Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.
 - Copilot handles inline completions separately and authenticates through :Copilot setup.
 - This config does not currently force a specific Copilot inline model from Neovim.
 - <leader>aa : open Avante ask
@@ -160,4 +160,3 @@ LSP and Diagnostics
 - <leader>r : show diagnostic float
 - <leader>q : send diagnostics to the location list
 - insert <C-h> : signature help
-
