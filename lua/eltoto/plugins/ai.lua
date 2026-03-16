@@ -4,7 +4,7 @@ return {
         config = function()
             vim.g.copilot_no_tab_map = true
 
-            vim.keymap.set("i", "<C-]>", 'copilot#Accept("\\<CR>")', {
+            vim.keymap.set("i", "<C-s>", 'copilot#Accept("\\<CR>")', {
                 expr = true,
                 replace_keycodes = false,
                 silent = true,

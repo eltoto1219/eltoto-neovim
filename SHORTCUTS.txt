@@ -18,6 +18,7 @@ AI
 - Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.
 - Copilot handles inline completions separately and authenticates through :Copilot setup.
 - This config does not currently force a specific Copilot inline model from Neovim.
+- Insert <C-s> accepts Copilot suggestions in normal editing buffers, while Avante keeps <C-s> for prompt submission inside Avante input windows.
 - <leader>aa : open Avante ask
 - <leader>ac : open Avante chat
 - <leader>at : toggle the Avante sidebar, or create a new chat if none exists
@@ -33,7 +34,7 @@ AI
 - Avante window <leader>, : switch to the previous Avante chat history entry
 - Avante window <leader>z : toggle the Avante layout between split and full view
 - Avante prompt <C-s> : submit the current Avante prompt or edit request
-- insert <C-]> : accept the current Copilot inline suggestion
+- insert <C-s> : accept the current Copilot inline suggestion
 
 Files and Search
 - <leader>pf : Telescope file picker

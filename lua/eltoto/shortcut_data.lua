@@ -25,6 +25,7 @@ M.sections = {
             "Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.",
             "Copilot handles inline completions separately and authenticates through :Copilot setup.",
             "This config does not currently force a specific Copilot inline model from Neovim.",
+            "Insert <C-s> accepts Copilot suggestions in normal editing buffers, while Avante keeps <C-s> for prompt submission inside Avante input windows.",
         },
         entries = {
             { lhs = "<leader>aa", desc = "open Avante ask" },
@@ -42,7 +43,7 @@ M.sections = {
             { lhs = "Avante window <leader>,", desc = "switch to the previous Avante chat history entry" },
             { lhs = "Avante window <leader>z", desc = "toggle the Avante layout between split and full view" },
             { lhs = "Avante prompt <C-s>", desc = "submit the current Avante prompt or edit request" },
-            { lhs = "insert <C-]>", desc = "accept the current Copilot inline suggestion" },
+            { lhs = "insert <C-s>", desc = "accept the current Copilot inline suggestion" },
         },
     },
     {

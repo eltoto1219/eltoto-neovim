@@ -1,5 +1,6 @@
 local M = {}
 local fullscreen_state_by_tab = {}
+local AVANTE_TITLE_MODEL = "gpt-4.1-mini"
 
 local AVANTE_FILETYPES = {
     "Avante",
@@ -200,7 +201,7 @@ end
 
 function M.history_label(history)
     local title = vim.trim(history.title or "")
-    if title == "" or title == "untitled" then
+    if title == "" then
         title = history.filename:gsub("%.json$", "")
     end
 
@@ -278,6 +279,176 @@ local function extract_text_content(content)
     end
 
     return text
+end
+
+local function trim_title_candidate(title)
+    if type(title) ~= "string" then
+        return nil
+    end
+
+    title = vim.trim(title:gsub("[\r\n]+", " "):gsub("%s+", " "))
+    title = title:gsub('^["' .. "'" .. "`%[]+", ""):gsub('["' .. "'" .. "`%],.:;!?]+$", "")
+
+    if title == "" then
+        return nil
+    end
+
+    local words = vim.split(title, "%s+")
+    if #words > 4 then
+        title = table.concat(vim.list_slice(words, 1, 4), " ")
+    end
+
+    return title
+end
+
+local function first_prompt_title(request)
+    if type(request) ~= "string" then
+        return ""
+    end
+
+    for _, line in ipairs(vim.split(request, "\n")) do
+        local trimmed = vim.trim(line)
+        if trimmed ~= "" then
+            return trimmed
+        end
+    end
+
+    return ""
+end
+
+local function request_short_chat_title(request, on_complete)
+    local ok_curl, curl = pcall(require, "plenary.curl")
+    local ok_providers, providers = pcall(require, "avante.providers")
+    local ok_utils, avante_utils = pcall(require, "avante.utils")
+    if not ok_curl or not ok_providers or not ok_utils then
+        return false
+    end
+
+    local provider = providers.openai
+    local provider_conf = providers.get_config("openai") or {}
+    local api_key = provider and provider.parse_api_key and provider.parse_api_key() or nil
+    if not api_key then
+        return false
+    end
+
+    local prompt = table.concat({
+        "Summarize this developer request into a short chat title.",
+        "Return only the title.",
+        "Use 1 to 4 words.",
+        "Avoid punctuation unless absolutely necessary.",
+        "",
+        request,
+    }, "\n")
+
+    local endpoint = avante_utils.url_join(provider_conf.endpoint or "https://api.openai.com/v1", "/chat/completions")
+    curl.post(endpoint, {
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["Authorization"] = "Bearer " .. api_key,
+        },
+        body = vim.json.encode({
+            model = vim.g.eltoto_avante_title_model or AVANTE_TITLE_MODEL,
+            messages = {
+                {
+                    role = "system",
+                    content = "You write extremely short chat titles.",
+                },
+                {
+                    role = "user",
+                    content = prompt,
+                },
+            },
+            temperature = 0.2,
+            max_tokens = 16,
+            stream = false,
+        }),
+        callback = function(resp)
+            if resp.status ~= 200 then
+                vim.schedule(function()
+                    on_complete(nil)
+                end)
+                return
+            end
+
+            local ok_decode, payload = pcall(vim.json.decode, resp.body or "")
+            if not ok_decode or type(payload) ~= "table" then
+                vim.schedule(function()
+                    on_complete(nil)
+                end)
+                return
+            end
+
+            local choice = payload.choices and payload.choices[1]
+            local message = choice and choice.message
+            local content = message and message.content
+            local title = trim_title_candidate(content)
+            vim.schedule(function()
+                on_complete(title)
+            end)
+        end,
+    })
+
+    return true
+end
+
+local function maybe_generate_chat_title(sidebar, request)
+    if not sidebar or type(request) ~= "string" then
+        return
+    end
+
+    local trimmed_request = vim.trim(request)
+    if trimmed_request == "" then
+        return
+    end
+
+    local history = sidebar.chat_history
+    if not history or history.title ~= "untitled" or not history.filename then
+        return
+    end
+
+    if sidebar._eltoto_title_generation_pending then
+        return
+    end
+
+    local bufnr = sidebar.code and sidebar.code.bufnr
+    if not bufnr then
+        return
+    end
+
+    local filename = history.filename
+    local default_title = first_prompt_title(trimmed_request)
+    sidebar._eltoto_title_generation_pending = true
+
+    local started = request_short_chat_title(trimmed_request, function(title)
+        sidebar._eltoto_title_generation_pending = nil
+
+        if not title then
+            return
+        end
+
+        local path = require("avante.path")
+        local saved_history = path.history.load(bufnr, filename)
+        if not saved_history or saved_history.filename ~= filename then
+            return
+        end
+
+        if saved_history.title ~= "untitled" and saved_history.title ~= default_title then
+            return
+        end
+
+        saved_history.title = title
+        path.history.save(bufnr, saved_history)
+
+        if sidebar.chat_history and sidebar.chat_history.filename == filename then
+            sidebar.chat_history.title = title
+        end
+
+        M.refresh_lualine()
+    end)
+
+    if not started then
+        sidebar._eltoto_title_generation_pending = nil
+    end
 end
 
 local function sanitize_history_message(message)
@@ -662,6 +833,85 @@ local function apply_history_prompt_patch()
     vim.g.eltoto_avante_history_prompt_patch = true
 end
 
+local function apply_sidebar_behavior_patches()
+    if vim.g.eltoto_avante_sidebar_behavior_patches then
+        return
+    end
+
+    local sidebar = require("avante.sidebar")
+    local original_update_content = sidebar.update_content
+    local original_handle_submit = sidebar.handle_submit
+    local original_add_history_messages = sidebar.add_history_messages
+    local original_get_message_lines = sidebar.get_message_lines
+    local original_render_state = sidebar.render_state
+
+    sidebar.update_content = function(self, content, opts)
+        if content == "New chat" then
+            content = ""
+        end
+
+        if self._eltoto_keep_submit_focus and type(opts) == "table" and opts.focus == true then
+            opts = vim.tbl_extend("force", {}, opts, { focus = false })
+        end
+
+        return original_update_content(self, content, opts)
+    end
+
+    sidebar.handle_submit = function(self, request)
+        local should_generate_title = self.chat_history
+            and self.chat_history.title == "untitled"
+            and vim.trim(request or "") ~= ""
+
+        self._eltoto_keep_submit_focus = true
+        local ok, result = xpcall(function()
+            return original_handle_submit(self, request)
+        end, debug.traceback)
+        self._eltoto_keep_submit_focus = nil
+
+        if not ok then
+            error(result)
+        end
+
+        if should_generate_title then
+            maybe_generate_chat_title(self, request)
+        end
+
+        return result
+    end
+
+    sidebar.add_history_messages = function(self, messages, opts)
+        local should_preserve_untitled = self.chat_history and self.chat_history.title == "untitled"
+        local result = original_add_history_messages(self, messages, opts)
+
+        if should_preserve_untitled and self.chat_history and self.chat_history.title ~= "untitled" then
+            self.chat_history.title = "untitled"
+            self:save_history()
+            M.refresh_lualine()
+        end
+
+        return result
+    end
+
+    sidebar.get_message_lines = function(self, ctx, message, messages, ignore_record_prefix)
+        if message and message.is_user_submission then
+            ignore_record_prefix = true
+        end
+
+        return original_get_message_lines(self, ctx, message, messages, ignore_record_prefix)
+    end
+
+    sidebar.render_state = function(self)
+        if self.current_state == "succeeded" or self.current_state == "failed" then
+            self:clear_state()
+            return
+        end
+
+        return original_render_state(self)
+    end
+
+    vim.g.eltoto_avante_sidebar_behavior_patches = true
+end
+
 local function set_prompt_highlights()
     local normal_hl = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
     local float_border_hl = vim.api.nvim_get_hl(0, { name = "FloatBorder", link = false })
@@ -790,6 +1040,7 @@ function M.setup(codex_model)
         behaviour = {
             auto_suggestions = false,
             auto_set_keymaps = false,
+            jump_result_buffer_on_finish = false,
         },
         mappings = {
             submit = {
@@ -823,6 +1074,7 @@ function M.setup(codex_model)
     hide_sidebar_input_hint()
     apply_prompt_input_patch()
     apply_history_prompt_patch()
+    apply_sidebar_behavior_patches()
     set_prompt_highlights()
     set_sidebar_separator_highlights()
     register_highlight_autocmd()
