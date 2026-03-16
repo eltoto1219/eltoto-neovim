@@ -14,14 +14,10 @@ return {
         vim.keymap.set("n", "<leader>x]", function() require("trouble").toggle("loclist") end, { desc = "Trouble loclist" })
         -- vim.keymap.set("n", "gR", function() require("trouble").toggle("lsp_references") end)
         vim.keymap.set("n", "]d", function()
-            require("trouble").next({ mode = "diagnostics", skip_groups = true, jump = true })
+            vim.diagnostic.jump({ count = 1, float = false })
         end, { desc = "Next diagnostic" })
         vim.keymap.set("n", "[d", function()
-            require("trouble").previous({ mode = "diagnostics", skip_groups = true, jump = true })
+            vim.diagnostic.jump({ count = -1, float = false })
         end, { nowait = true, desc = "Previous diagnostic" })
-        -- vim.keymap.set("n", ']d', function() vim.diagnostics.goto_next() end)
-        -- vim.keymap.set("n", '[d', function() vim.diagnostics.goto_prev() end)
-
-
  end
 }

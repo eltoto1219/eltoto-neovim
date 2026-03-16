@@ -141,8 +141,8 @@ Messages and Diagnostics
 - <leader>xq : Trouble quickfix list
 - <leader>x] : Trouble location list
 - <leader>xt : TODO comments in Trouble
-- ]d : jump to the next diagnostic or Trouble item
-- [d : jump to the previous diagnostic or Trouble item
+- ]d : jump to the next diagnostic
+- [d : jump to the previous diagnostic
 - ]t : jump to the next TODO comment
 - [t : jump to the previous TODO comment
 - <leader>pt : TODO comments in Telescope
