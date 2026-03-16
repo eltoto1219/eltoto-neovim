@@ -1,4 +1,5 @@
 local M = {}
+local fullscreen_state_by_tab = {}
 
 local AVANTE_FILETYPES = {
     "Avante",
@@ -37,6 +38,88 @@ function M.is_sidebar_buffer(bufnr)
     return ok and avante_utils.is_sidebar_buffer(bufnr or vim.api.nvim_get_current_buf()) or false
 end
 
+local function is_valid_win(winid)
+    return type(winid) == "number" and winid > 0 and vim.api.nvim_win_is_valid(winid)
+end
+
+local function current_tab()
+    return vim.api.nvim_get_current_tabpage()
+end
+
+local function container_height(container)
+    if not container or not is_valid_win(container.winid) then
+        return 0
+    end
+
+    return vim.api.nvim_win_get_height(container.winid)
+end
+
+local function safe_call(object, method)
+    if object and type(object[method]) == "function" then
+        object[method](object)
+    end
+end
+
+function M.resize_current_window(delta)
+    if vim.bo[vim.api.nvim_get_current_buf()].filetype ~= "AvanteInput" then
+        return false
+    end
+
+    local sidebar = M.get_sidebar()
+    if not sidebar or sidebar:get_layout() ~= "vertical" then
+        return false
+    end
+
+    local input = sidebar.containers and sidebar.containers.input
+    local result = sidebar.containers and sidebar.containers.result
+    if not input or not result or not is_valid_win(input.winid) or not is_valid_win(result.winid) then
+        return false
+    end
+
+    local current_height = vim.api.nvim_win_get_height(input.winid)
+    local current_total_height = current_height + vim.api.nvim_win_get_height(result.winid)
+    for _, name in ipairs({ "selected_code", "selected_files", "todos" }) do
+        current_total_height = current_total_height + container_height(sidebar.containers[name])
+    end
+
+    safe_call(sidebar, "adjust_selected_code_container_layout")
+    safe_call(sidebar, "adjust_selected_files_container_layout")
+    safe_call(sidebar, "adjust_todos_container_layout")
+
+    local fixed_height = 0
+    if type(sidebar.get_selected_code_container_height) == "function" then
+        fixed_height = fixed_height + sidebar:get_selected_code_container_height()
+    end
+    if type(sidebar.get_selected_files_container_height) == "function" then
+        fixed_height = fixed_height + sidebar:get_selected_files_container_height()
+    end
+    if type(sidebar.get_todos_container_height) == "function" then
+        fixed_height = fixed_height + sidebar:get_todos_container_height()
+    end
+
+    local available_height = math.max(1, current_total_height - fixed_height)
+    local min_input_height = 3
+    local min_result_height = 1
+    local max_input_height = math.max(min_input_height, available_height - min_result_height)
+    local target_height = math.max(min_input_height, math.min(max_input_height, current_height + delta))
+
+    if target_height == current_height then
+        return true
+    end
+
+    require("avante.config").windows.input.height = target_height
+    vim.api.nvim_win_set_height(input.winid, target_height)
+    vim.api.nvim_win_set_height(result.winid, math.max(min_result_height, available_height - target_height))
+
+    if vim.api.nvim_get_current_win() == input.winid then
+        pcall(function()
+            sidebar:show_input_hint()
+        end)
+    end
+
+    return true
+end
+
 function M.refresh_lualine()
     local ok, lualine = pcall(require, "lualine")
     if not ok then
@@ -67,6 +150,23 @@ local function focus_kind(sidebar)
         return "input"
     end
     return "result"
+end
+
+local function remember_fullscreen_state(sidebar)
+    fullscreen_state_by_tab[current_tab()] = sidebar and sidebar.is_in_full_view == true or false
+end
+
+local function restore_fullscreen_state(sidebar)
+    if not sidebar or not sidebar:is_open() then
+        return
+    end
+
+    local should_be_fullscreen = fullscreen_state_by_tab[current_tab()] == true
+    if should_be_fullscreen and not sidebar.is_in_full_view then
+        sidebar:toggle_code_window()
+    elseif not should_be_fullscreen and sidebar.is_in_full_view then
+        sidebar:toggle_code_window()
+    end
 end
 
 function M.list_histories()
@@ -376,6 +476,7 @@ function M.toggle_or_create()
 
     local sidebar = M.get_sidebar(false)
     if sidebar and sidebar:is_open() then
+        remember_fullscreen_state(sidebar)
         avante.toggle()
         return
     end
@@ -391,10 +492,14 @@ function M.toggle_or_create()
     local histories = require("avante.path").history.list(target_bufnr)
     if #histories > 0 then
         avante.open_sidebar({ ask = false })
+        restore_fullscreen_state(M.get_sidebar(false))
         return
     end
 
     require("avante.api").ask({ new_chat = true })
+    vim.schedule(function()
+        restore_fullscreen_state(M.get_sidebar(false))
+    end)
 end
 
 function M.open_startup_chat_if_empty()
@@ -571,6 +676,36 @@ local function set_prompt_highlights()
     })
 end
 
+local function set_sidebar_separator_highlights()
+    local win_separator_hl = vim.api.nvim_get_hl(0, { name = "WinSeparator", link = false })
+    local normal_float_hl = vim.api.nvim_get_hl(0, { name = "NormalFloat", link = false })
+    local normal_hl = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
+    local fg = win_separator_hl.fg or normal_hl.fg
+    local bg = normal_float_hl.bg or normal_hl.bg
+
+    vim.api.nvim_set_hl(0, "AvanteSidebarWinSeparator", {
+        fg = fg,
+        bg = bg,
+        bold = true,
+    })
+    vim.api.nvim_set_hl(0, "AvanteSidebarWinHorizontalSeparator", {
+        fg = fg,
+        bg = bg,
+        bold = true,
+    })
+end
+
+local function register_highlight_autocmd()
+    local group = vim.api.nvim_create_augroup("eltoto_avante_highlights", { clear = true })
+    vim.api.nvim_create_autocmd("ColorScheme", {
+        group = group,
+        callback = function()
+            set_prompt_highlights()
+            set_sidebar_separator_highlights()
+        end,
+    })
+end
+
 local function register_local_mappings()
     local group = vim.api.nvim_create_augroup("eltoto_avante_local_mappings", { clear = true })
     vim.api.nvim_create_autocmd("FileType", {
@@ -578,6 +713,13 @@ local function register_local_mappings()
         pattern = AVANTE_FILETYPES,
         callback = function(event)
             local opts = { buffer = event.buf, silent = true }
+            local filetype = vim.bo[event.buf].filetype
+
+            if vim.tbl_contains({ "AvanteSelectedCode", "AvanteSelectedFiles", "AvanteTodos" }, filetype) then
+                vim.opt_local.winfixheight = true
+            elseif vim.tbl_contains({ "Avante", "AvanteInput", "AvantePromptInput" }, filetype) then
+                vim.opt_local.winfixheight = false
+            end
 
             vim.keymap.set("n", "<leader>an", "<cmd>AvanteChatNew<CR>", vim.tbl_extend("force", opts, {
                 desc = "Avante new chat",
@@ -662,6 +804,9 @@ function M.setup(codex_model)
             },
         },
         windows = {
+            ask = {
+                start_insert = false,
+            },
             input = {
                 height = 10,
             },
@@ -679,6 +824,8 @@ function M.setup(codex_model)
     apply_prompt_input_patch()
     apply_history_prompt_patch()
     set_prompt_highlights()
+    set_sidebar_separator_highlights()
+    register_highlight_autocmd()
     register_local_mappings()
     register_global_mappings()
 end

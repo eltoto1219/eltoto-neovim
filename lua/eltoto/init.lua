@@ -9,6 +9,7 @@ require("eltoto.terminal").setup()
 require("eltoto.remap")
 require("eltoto.set")
 require("eltoto.autocmd")
+require("eltoto.ui.windows").setup()
 
 vim.o.background = "dark"
 vim.opt.nu = true

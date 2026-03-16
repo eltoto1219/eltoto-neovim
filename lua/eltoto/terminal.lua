@@ -2,6 +2,7 @@ local M = {}
 local eltoto_avante = require("eltoto.avante")
 local env = require("eltoto.env")
 local buffers = require("eltoto.buffers")
+local ui_input = require("eltoto.ui.input")
 
 local last_terminal_bufnr = nil
 local custom_labels = {}
@@ -458,8 +459,9 @@ function M.rename_current()
         return
     end
 
-    vim.ui.input({
-        prompt = "Terminal name: ",
+    ui_input.centered({
+        title = " Terminal Name ",
+        prompt = "Name: ",
         default = "",
     }, function(input)
         if input == nil then
@@ -514,6 +516,9 @@ function M.setup()
             }))
             vim.keymap.set("n", "k", "gk", vim.tbl_extend("force", opts, {
                 desc = "Terminal scrollback up",
+            }))
+            vim.keymap.set("n", "<leader>r", M.rename_current, vim.tbl_extend("force", opts, {
+                desc = "Rename current terminal",
             }))
         end,
     })

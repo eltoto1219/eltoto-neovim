@@ -1,12 +1,8 @@
 local M = {}
 local terminal = require("eltoto.terminal")
 local avante = require("eltoto.avante")
+local colors = require("eltoto.ui.colors")
 local augroup = nil
-
-local function get_hl(name)
-	local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = name, link = false })
-	return ok and hl or {}
-end
 
 local function set_hl(name, opts)
 	vim.api.nvim_set_hl(0, name, opts)
@@ -61,49 +57,55 @@ local function terminal_label(bufinfo)
 end
 
 function M.setup_highlights()
-	local tabline = get_hl("TabLine")
-	local tabline_sel = get_hl("TabLineSel")
-	local tabline_fill = get_hl("TabLineFill")
+	local normal = colors.get_hl("Normal")
+	local tabline = colors.get_hl("TabLine")
+	local tabline_sel = colors.get_hl("TabLineSel")
+	local tabline_fill = colors.get_hl("TabLineFill")
+	local inactive_bg = colors.lighten(tabline.bg or normal.bg, 0.08, tabline.fg or normal.fg)
+	local active_bg = colors.lighten(tabline_sel.bg or inactive_bg, 0.18, tabline_sel.fg or normal.fg)
+	local separator_bg = colors.lighten(tabline_fill.bg or tabline.bg or normal.bg, 0.05, tabline.fg or normal.fg)
+	local inactive_fg = tabline.fg or normal.fg
+	local active_fg = tabline_sel.fg or normal.fg
 
 	set_hl("EltotoTablineFileActive", {
-		fg = tabline_sel.fg,
-		bg = tabline_sel.bg,
-		bold = tabline_sel.bold,
+		fg = active_fg,
+		bg = active_bg,
+		bold = true,
 		italic = tabline_sel.italic,
 	})
 	set_hl("EltotoTablineFileInactive", {
-		fg = tabline.fg,
-		bg = tabline.bg,
+		fg = inactive_fg,
+		bg = inactive_bg,
 		bold = tabline.bold,
 		italic = tabline.italic,
 	})
 	set_hl("EltotoTablineTermActive", {
-		fg = tabline_sel.fg,
-		bg = tabline_sel.bg,
-		bold = tabline_sel.bold,
+		fg = active_fg,
+		bg = active_bg,
+		bold = true,
 		italic = tabline_sel.italic,
 	})
 	set_hl("EltotoTablineTermInactive", {
-		fg = tabline.fg,
-		bg = tabline.bg,
+		fg = inactive_fg,
+		bg = inactive_bg,
 		bold = tabline.bold,
 		italic = tabline.italic,
 	})
 	set_hl("EltotoTablineAvanteActive", {
-		fg = tabline_sel.fg,
-		bg = tabline_sel.bg,
-		bold = tabline_sel.bold,
+		fg = active_fg,
+		bg = active_bg,
+		bold = true,
 		italic = tabline_sel.italic,
 	})
 	set_hl("EltotoTablineAvanteInactive", {
-		fg = tabline.fg,
-		bg = tabline.bg,
+		fg = inactive_fg,
+		bg = inactive_bg,
 		bold = tabline.bold,
 		italic = tabline.italic,
 	})
 	set_hl("EltotoTablineSeparator", {
-		fg = tabline_fill.fg or tabline.fg,
-		bg = tabline_fill.bg or tabline.bg,
+		fg = tabline_fill.fg or inactive_fg,
+		bg = separator_bg,
 	})
 end
 

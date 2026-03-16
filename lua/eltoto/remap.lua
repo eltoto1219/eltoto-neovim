@@ -4,6 +4,7 @@ local buffers = require("eltoto.buffers")
 local processes = require("eltoto.processes")
 local terminal = require("eltoto.terminal")
 local run = require("eltoto.run")
+local avante = require("eltoto.avante")
 
 local function termcodes(keys)
     return vim.api.nvim_replace_termcodes(keys, true, false, true)
@@ -42,6 +43,17 @@ local function write_file()
     end
 
     vim.api.nvim_echo({ { "wrote", "ModeMsg" } }, false, {})
+end
+
+local function resize_height(delta)
+    return function()
+        if avante.resize_current_window(delta) then
+            return
+        end
+
+        local amount = (delta > 0 and "+" or "") .. tostring(delta)
+        vim.cmd("resize " .. amount)
+    end
 end
 
 map("n", "<leader>,", buffers.backward, { silent = true, desc = "Previous file buffer" })
@@ -91,8 +103,8 @@ map("n", "<leader>pa", processes.attach_last, { silent = true, desc = "Attach la
 map("n", "<leader>pk", processes.kill_current_or_select, { silent = true, desc = "Kill persistent terminal" })
 map("n", "<leader>pK", processes.kill_all, { silent = true, desc = "Kill all persistent terminals" })
 map("n", "<leader>e", run.exec_current_file, { silent = true, desc = "Run current file" })
-map("n", "<leader>=", "<C-W>:resize +5<CR>", { silent = true, desc = "Increase window height" })
-map("n", "<leader>-", "<C-W>:resize -5<CR>", { silent = true, desc = "Decrease window height" })
+map("n", "<leader>=", resize_height(5), { silent = true, desc = "Increase window height" })
+map("n", "<leader>-", resize_height(-5), { silent = true, desc = "Decrease window height" })
 map("n", "W=", "<C-W>:vert resize +5<CR>", { silent = true, desc = "Increase window width" })
 map("n", "W-", "<C-W>:vert resize -5<CR>", { silent = true, desc = "Decrease window width" })
 
@@ -113,10 +125,6 @@ map("t", "<leader>,", function()
     vim.schedule(terminal.backward)
 end, { silent = true, desc = "Previous terminal buffer" })
 map("t", "<leader>1", "<C-\\><C-n>:b1 #<CR>", { silent = true, desc = "Go to buffer 1" })
-map("t", "<leader>r", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(terminal.rename_current)
-end, { silent = true, desc = "Rename current terminal" })
 map("t", "qq", function()
     vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
     vim.schedule(buffers.quit_current_or_window)

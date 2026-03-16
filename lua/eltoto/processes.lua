@@ -1,198 +1,35 @@
 local M = {}
 
 local buffers = require("eltoto.buffers")
+local process_backend = require("eltoto.process_backend")
 local terminal = require("eltoto.terminal")
+local ui_input = require("eltoto.ui.input")
 
-local SESSION_PREFIX = "eltoto-process-"
 local last_session_name = nil
 local session_for_buf = {}
 
-local function tmux_path()
-    local path = vim.fn.exepath("tmux")
-    if path ~= nil and path ~= "" then
-        return path
-    end
-
-    return "tmux"
-end
-
-local function socket_path()
-    local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "tmux")
-    vim.fn.mkdir(dir, "p")
-    return vim.fs.joinpath(dir, "persistent-processes.sock")
-end
-
-local function registry_path()
-    local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "eltoto")
-    vim.fn.mkdir(dir, "p")
-    return vim.fs.joinpath(dir, "persistent_processes.json")
-end
-
-local function tmux_command_args(args)
-    return vim.list_extend({ "-S", socket_path() }, args)
-end
-
-local function tmux_available()
-    return vim.fn.executable(tmux_path()) == 1
-end
-
-local function notify_tmux_missing()
-    vim.notify("tmux is required for persistent terminal processes", vim.log.levels.WARN)
-end
-
-local function session_name(display_name)
-    return SESSION_PREFIX .. display_name
-end
-
-local function display_name(session)
-    return session:gsub("^" .. vim.pesc(SESSION_PREFIX), "")
-end
-
-local function tmux_system(args)
-    local escaped = { vim.fn.shellescape(tmux_path()) }
-    for _, arg in ipairs(tmux_command_args(args)) do
-        escaped[#escaped + 1] = vim.fn.shellescape(arg)
-    end
-
-    local output = vim.fn.system(table.concat(escaped, " "))
-    if vim.v.shell_error ~= 0 then
-        return nil, output
-    end
-
-    local result = vim.split(output, "\n", { trimempty = true })
-    return result, nil
-end
-
-local function read_registry()
-    local path = registry_path()
-    if vim.fn.filereadable(path) ~= 1 then
-        return {}
-    end
-
-    local ok, decoded = pcall(vim.json.decode, table.concat(vim.fn.readfile(path), "\n"))
-    if not ok or type(decoded) ~= "table" then
-        return {}
-    end
-
-    return decoded
-end
-
-local function write_registry(items)
-    vim.fn.writefile({ vim.json.encode(items) }, registry_path())
-end
-
-local function add_to_registry(name)
-    local items = read_registry()
-    for _, item in ipairs(items) do
-        if item == name then
-            return
-        end
-    end
-
-    items[#items + 1] = name
-    table.sort(items)
-    write_registry(items)
-end
-
-local function remove_from_registry(name)
-    local items = {}
-    for _, item in ipairs(read_registry()) do
-        if item ~= name then
-            items[#items + 1] = item
-        end
-    end
-    write_registry(items)
-end
-
-local function tmux_has_session(name)
-    local escaped = { vim.fn.shellescape(tmux_path()) }
-    for _, arg in ipairs(tmux_command_args({ "has-session", "-t", session_name(name) })) do
-        escaped[#escaped + 1] = vim.fn.shellescape(arg)
-    end
-
-    vim.fn.system(table.concat(escaped, " "))
-    return vim.v.shell_error == 0
-end
-
-local function startup_shell_command(command)
-    local shell = vim.o.shell
-    local shell_path = vim.fn.shellescape(shell)
-    local message = "[startup command finished, interactive shell opened]"
-    local shell_command = command .. "; printf '\\n" .. message .. "\\n'; exec " .. shell_path .. " -i"
-
-    return table.concat({
-        vim.fn.shellescape(shell),
-        vim.o.shellcmdflag,
-        vim.fn.shellescape(shell_command),
-    }, " ")
-end
-
-local function interactive_shell_command()
-    return table.concat({
-        vim.fn.shellescape(vim.o.shell),
-        "-i",
-    }, " ")
-end
-
-local function configure_tmux_server()
-    tmux_system({ "start-server" })
-    tmux_system({ "set-option", "-g", "default-terminal", "tmux-256color" })
-    tmux_system({ "set-option", "-g", "default-shell", vim.o.shell })
-    tmux_system({ "set-option", "-g", "status", "off" })
-end
-
 local function managed_sessions()
-    if not tmux_available() then
-        return {}
-    end
-
-    local items = {}
-    local stale = {}
-    for _, name in ipairs(read_registry()) do
-        if tmux_has_session(name) then
-            items[#items + 1] = {
-                session = session_name(name),
-                name = name,
-            }
-        else
-            stale[#stale + 1] = name
-        end
-    end
-
-    if #stale > 0 then
-        for _, name in ipairs(stale) do
-            remove_from_registry(name)
-        end
-    end
-
-    table.sort(items, function(a, b)
-        return a.name < b.name
-    end)
-
-    return items
+    return process_backend.managed_sessions()
 end
 
 local function session_exists(name)
-    for _, item in ipairs(managed_sessions()) do
-        if item.name == name then
-            return true
-        end
-    end
-
-    return false
+    return process_backend.session_exists(name)
 end
 
 local function attach(item)
-    if not tmux_available() then
-        notify_tmux_missing()
+    if not process_backend.available() then
+        process_backend.notify_missing()
         return
     end
 
-    local bufnr = terminal.open_command(vim.list_extend({ tmux_path() }, tmux_command_args({
+    local bufnr = terminal.open_command(process_backend.command({
         "attach-session",
         "-t",
         item.session,
-    })), item.name)
+    }), item.name)
+    if not bufnr then
+        return
+    end
     session_for_buf[bufnr] = item.name
     last_session_name = item.name
 end
@@ -272,35 +109,18 @@ local function select_session(prompt, on_choice)
     vim.api.nvim_win_set_cursor(winid, { 1, 0 })
 end
 
-local function attach_when_ready(name)
-    local item = { session = session_name(name), name = name }
-
-    if session_exists(name) then
-        attach(item)
-        return
-    end
-
-    vim.defer_fn(function()
-        if session_exists(name) then
-            attach(item)
-        else
-            vim.notify("Persistent terminal '" .. name .. "' did not start correctly", vim.log.levels.ERROR)
-        end
-    end, 100)
-end
-
 function M.current_process_name(bufnr)
     return session_for_buf[bufnr or vim.api.nvim_get_current_buf()]
 end
 
 function M.attach_last()
-    if not tmux_available() then
-        notify_tmux_missing()
+    if not process_backend.available() then
+        process_backend.notify_missing()
         return
     end
 
     if last_session_name and session_exists(last_session_name) then
-        attach({ session = session_name(last_session_name), name = last_session_name })
+        attach({ session = process_backend.session_name(last_session_name), name = last_session_name })
         return
     end
 
@@ -312,8 +132,8 @@ function M.attach_last()
 end
 
 function M.list()
-    if not tmux_available() then
-        notify_tmux_missing()
+    if not process_backend.available() then
+        process_backend.notify_missing()
         return
     end
 
@@ -325,12 +145,15 @@ function M.list()
 end
 
 function M.new()
-    if not tmux_available() then
-        notify_tmux_missing()
+    if not process_backend.available() then
+        process_backend.notify_missing()
         return
     end
 
-    vim.ui.input({ prompt = "Persistent process name: " }, function(name_input)
+    ui_input.centered({
+        title = " Persistent Process ",
+        prompt = "Name: ",
+    }, function(name_input)
         if not name_input then
             return
         end
@@ -342,35 +165,37 @@ function M.new()
 
         if session_exists(name) then
             vim.notify("Persistent process '" .. name .. "' already exists", vim.log.levels.WARN)
-            attach({ session = session_name(name), name = name })
+            attach({ session = process_backend.session_name(name), name = name })
             return
         end
 
-        vim.ui.input({ prompt = "Startup command (optional): " }, function(command_input)
-            configure_tmux_server()
-            local args = { "new-session", "-d", "-s", session_name(name) }
-            if command_input and vim.trim(command_input) ~= "" then
-                args[#args + 1] = startup_shell_command(vim.trim(command_input))
-            else
-                args[#args + 1] = interactive_shell_command()
-            end
+        vim.schedule(function()
+            ui_input.centered({
+                title = " Startup Command ",
+                prompt = "Command: ",
+            }, function(command_input)
+            local startup_command = command_input and vim.trim(command_input) or ""
 
-            local _, err = tmux_system(args)
+            local _, err = process_backend.create_session(name)
             if err then
-                vim.notify(err, vim.log.levels.ERROR)
                 return
             end
 
-            tmux_system({ "set-option", "-t", session_name(name), "status", "off" })
-            add_to_registry(name)
-            attach_when_ready(name)
+            attach({ session = process_backend.session_name(name), name = name })
+
+            if startup_command ~= "" then
+                vim.defer_fn(function()
+                    process_backend.send_startup_command(name, startup_command)
+                end, 50)
+            end
+            end)
         end)
     end)
 end
 
 function M.kill_current_or_select()
-    if not tmux_available() then
-        notify_tmux_missing()
+    if not process_backend.available() then
+        process_backend.notify_missing()
         return
     end
 
@@ -378,13 +203,11 @@ function M.kill_current_or_select()
     local current_name = M.current_process_name(current_buf)
 
     local function kill(name)
-        local _, err = tmux_system({ "kill-session", "-t", session_name(name) })
+        local _, err = process_backend.kill_session(name)
         if err then
             vim.notify(err, vim.log.levels.ERROR)
             return
         end
-
-        remove_from_registry(name)
 
         if current_name == name and vim.api.nvim_buf_is_valid(current_buf) then
             local target = buffers.get_last_edit_buf()
@@ -416,8 +239,8 @@ function M.kill_current_or_select()
 end
 
 function M.kill_all()
-    if not tmux_available() then
-        notify_tmux_missing()
+    if not process_backend.available() then
+        process_backend.notify_missing()
         return
     end
 
@@ -429,7 +252,7 @@ function M.kill_all()
 
     local names = {}
     for _, item in ipairs(items) do
-        local _, err = tmux_system({ "kill-session", "-t", item.session })
+        local _, err = process_backend.system({ "kill-session", "-t", item.session })
         if err then
             vim.notify(err, vim.log.levels.ERROR)
             return
@@ -437,7 +260,7 @@ function M.kill_all()
         names[#names + 1] = item.name
     end
 
-    write_registry({})
+    process_backend.clear_registry()
     last_session_name = nil
 
     local current = vim.api.nvim_get_current_buf()

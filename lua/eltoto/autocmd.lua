@@ -2,6 +2,48 @@ local term_group = vim.api.nvim_create_augroup("EltotoTerminal", { clear = true 
 local whitespace_group = vim.api.nvim_create_augroup("EltotoWhitespace", { clear = true })
 local filetype_group = vim.api.nvim_create_augroup("EltotoFiletypes", { clear = true })
 
+local function set_terminal_highlights()
+    local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
+    local normal_nc = vim.api.nvim_get_hl(0, { name = "NormalNC", link = false })
+    local end_of_buffer = vim.api.nvim_get_hl(0, { name = "EndOfBuffer", link = false })
+
+    vim.api.nvim_set_hl(0, "EltotoTerminalNormal", {
+        fg = normal.fg,
+        bg = 0x000000,
+    })
+    vim.api.nvim_set_hl(0, "EltotoTerminalNormalNC", {
+        fg = normal_nc.fg or normal.fg,
+        bg = 0x000000,
+    })
+    vim.api.nvim_set_hl(0, "EltotoTerminalEndOfBuffer", {
+        fg = end_of_buffer.fg or 0x000000,
+        bg = 0x000000,
+    })
+end
+
+local function apply_terminal_window_style(winid)
+    if not vim.api.nvim_win_is_valid(winid) then
+        return
+    end
+
+    vim.wo[winid].winhighlight = table.concat({
+        "Normal:EltotoTerminalNormal",
+        "NormalNC:EltotoTerminalNormalNC",
+        "EndOfBuffer:EltotoTerminalEndOfBuffer",
+    }, ",")
+end
+
+local function clear_terminal_window_style(winid)
+    if not vim.api.nvim_win_is_valid(winid) then
+        return
+    end
+
+    local current = vim.wo[winid].winhighlight or ""
+    if current:find("EltotoTerminal", 1, true) then
+        vim.wo[winid].winhighlight = ""
+    end
+end
+
 local function strip_trailing_whitespace()
     local view = vim.fn.winsaveview()
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
@@ -40,6 +82,11 @@ vim.api.nvim_create_autocmd("FileType", {
     end,
 })
 
+vim.api.nvim_create_autocmd({ "ColorScheme", "VimEnter" }, {
+    group = term_group,
+    callback = set_terminal_highlights,
+})
+
 vim.api.nvim_create_autocmd({ "TermOpen", "TermEnter", "BufEnter" }, {
     group = term_group,
     pattern = "term://*",
@@ -55,6 +102,7 @@ vim.api.nvim_create_autocmd({ "TermOpen", "TermEnter", "BufEnter" }, {
         vim.wo.relativenumber = false
         vim.wo.number = false
         vim.opt_local.signcolumn = "no"
+        apply_terminal_window_style(vim.api.nvim_get_current_win())
     end,
 })
 
@@ -63,6 +111,7 @@ vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
     pattern = "*",
     callback = function(event)
         if vim.bo[event.buf].buftype == "" then
+            clear_terminal_window_style(vim.api.nvim_get_current_win())
             vim.wo.number = true
             vim.wo.relativenumber = true
         end

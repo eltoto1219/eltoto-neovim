@@ -54,6 +54,19 @@ local function normal_windows_in_tab()
     return wins
 end
 
+local function file_windows_in_tab()
+    local wins = {}
+
+    for _, winid in ipairs(normal_windows_in_tab()) do
+        local bufnr = vim.api.nvim_win_get_buf(winid)
+        if is_named_edit_buf(bufnr) and not is_avante_buf(bufnr) then
+            wins[#wins + 1] = winid
+        end
+    end
+
+    return wins
+end
+
 local function avante_windows_in_tab()
     local wins = {}
 
@@ -211,9 +224,11 @@ end
 function M.quit_current_or_window()
     local current_win = vim.api.nvim_get_current_win()
     local normal_wins = normal_windows_in_tab()
+    local file_wins = file_windows_in_tab()
     local current = vim.api.nvim_get_current_buf()
     local current_is_term = is_terminal_buf(current)
     local current_is_avante = is_avante_buf(current)
+    local current_is_file = is_named_edit_buf(current) and not current_is_avante
     local avante_wins = avante_windows_in_tab()
     local avante_is_open = #avante_wins > 0
 
@@ -234,6 +249,11 @@ function M.quit_current_or_window()
                 end
             end)
         end
+        return
+    end
+
+    if current_is_file and #file_wins > 1 then
+        safe_close_window(current_win)
         return
     end
 

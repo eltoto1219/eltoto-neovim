@@ -55,7 +55,7 @@ M.sections = {
             { lhs = "<leader>pv", desc = "toggle the file explorer in a left vertical split" },
             { lhs = "<leader>w", desc = "save the current file" },
             { lhs = "qa", desc = "force quit the current window" },
-            { lhs = "qq", desc = "close the current window if split, otherwise close the current buffer or quit Neovim when only terminal buffers remain" },
+            { lhs = "qq", desc = "close the current window when multiple file windows are visible; otherwise close the current buffer or quit Neovim when only terminal buffers remain" },
             { lhs = "<leader>ba", desc = "jump to the alternate or last file buffer" },
         },
     },

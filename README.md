@@ -354,7 +354,7 @@ Files and Search
 - `<leader>pv`: toggle the file explorer in a left vertical split
 - `<leader>w`: save the current file
 - `qa`: force quit the current window
-- `qq`: close the current window if split, otherwise close the current buffer or quit Neovim when only terminal buffers remain
+- `qq`: close the current window when multiple file windows are visible; otherwise close the current buffer or quit Neovim when only terminal buffers remain
 - `<leader>ba`: jump to the alternate or last file buffer
 
 Regular Buffer Navigation
