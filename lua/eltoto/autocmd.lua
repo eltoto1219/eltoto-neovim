@@ -1,6 +1,7 @@
 local term_group = vim.api.nvim_create_augroup("EltotoTerminal", { clear = true })
 local whitespace_group = vim.api.nvim_create_augroup("EltotoWhitespace", { clear = true })
 local filetype_group = vim.api.nvim_create_augroup("EltotoFiletypes", { clear = true })
+local terminal_bg = 0x1e1e1e
 
 local function set_terminal_highlights()
     local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
@@ -9,15 +10,15 @@ local function set_terminal_highlights()
 
     vim.api.nvim_set_hl(0, "EltotoTerminalNormal", {
         fg = normal.fg,
-        bg = 0x000000,
+        bg = terminal_bg,
     })
     vim.api.nvim_set_hl(0, "EltotoTerminalNormalNC", {
         fg = normal_nc.fg or normal.fg,
-        bg = 0x000000,
+        bg = terminal_bg,
     })
     vim.api.nvim_set_hl(0, "EltotoTerminalEndOfBuffer", {
-        fg = end_of_buffer.fg or 0x000000,
-        bg = 0x000000,
+        fg = end_of_buffer.fg or terminal_bg,
+        bg = terminal_bg,
     })
 end
 

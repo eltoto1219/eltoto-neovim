@@ -3,11 +3,24 @@ local M = {}
 function M.setup()
     local cmp = require("cmp")
     local cmp_select = { behavior = cmp.SelectBehavior.Select }
+    local bordered_window = cmp.config.window.bordered({
+        border = "rounded",
+        winhighlight = table.concat({
+            "Normal:Pmenu",
+            "FloatBorder:FloatBorder",
+            "CursorLine:PmenuSel",
+            "Search:None",
+        }, ","),
+    })
 
     cmp.setup({
         preselect = true,
         completion = {
             completeopt = "menu,menuone,noinsert",
+        },
+        window = {
+            completion = bordered_window,
+            documentation = bordered_window,
         },
         sources = cmp.config.sources({
             { name = "pylsp" },
