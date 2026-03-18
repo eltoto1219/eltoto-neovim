@@ -27,6 +27,41 @@ return {
                 vim.wo[winid].winhighlight = current
             end
 
+            local function focus_file_window_when_opening_from_avante()
+                local ok, eltoto_avante = pcall(require, "eltoto.avante")
+                if not ok or not eltoto_avante.is_sidebar_buffer(vim.api.nvim_get_current_buf()) then
+                    return
+                end
+
+                local sidebar = eltoto_avante.get_sidebar(false)
+                if not sidebar or not sidebar:is_open() then
+                    return
+                end
+
+                local function is_file_window(winid)
+                    if not winid or not vim.api.nvim_win_is_valid(winid) or sidebar:is_sidebar_winid(winid) then
+                        return false
+                    end
+
+                    local bufnr = vim.api.nvim_win_get_buf(winid)
+                    return vim.bo[bufnr].filetype ~= "NvimTree"
+                end
+
+                local target = sidebar.code and sidebar.code.winid or nil
+                if not is_file_window(target) then
+                    for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+                        if is_file_window(winid) then
+                            target = winid
+                            break
+                        end
+                    end
+                end
+
+                if is_file_window(target) then
+                    vim.api.nvim_set_current_win(target)
+                end
+            end
+
             local function set_tree_highlights()
                 local colors = require("eltoto.ui.colors")
                 local normal = colors.get_hl("Normal")
@@ -88,7 +123,12 @@ return {
             })
 
             vim.keymap.set("n", "<leader>pv", function()
-                require("nvim-tree.api").tree.toggle({
+                local api = require("nvim-tree.api")
+                if not api.tree.is_visible() then
+                    focus_file_window_when_opening_from_avante()
+                end
+
+                api.tree.toggle({
                     find_file = true,
                     focus = true,
                 })

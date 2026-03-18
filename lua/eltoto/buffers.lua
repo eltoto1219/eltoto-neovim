@@ -231,6 +231,9 @@ function M.quit_current_or_window()
     local current_is_file = is_named_edit_buf(current) and not current_is_avante
     local avante_wins = avante_windows_in_tab()
     local avante_is_open = #avante_wins > 0
+    local real = M.real_edit_buffers()
+    local terms = M.terminal_buffers()
+    local current_is_last_real = false
 
     if not is_normal_window(current_win) then
         safe_close_window(current_win)
@@ -252,6 +255,18 @@ function M.quit_current_or_window()
         return
     end
 
+    for _, bufinfo in ipairs(real) do
+        if bufinfo.bufnr == current then
+            current_is_last_real = #real == 1
+            break
+        end
+    end
+
+    if current_is_file and current_is_last_real then
+        vim.cmd.qa({ bang = true })
+        return
+    end
+
     if current_is_file and #file_wins > 1 then
         safe_close_window(current_win)
         return
@@ -262,9 +277,6 @@ function M.quit_current_or_window()
         return
     end
 
-    local real = M.real_edit_buffers()
-    local terms = M.terminal_buffers()
-    local current_is_last_real = false
     local target = nil
 
     local function previous_real_buffer()
@@ -289,13 +301,6 @@ function M.quit_current_or_window()
         end
 
         return nil
-    end
-
-    for _, bufinfo in ipairs(real) do
-        if bufinfo.bufnr == current then
-            current_is_last_real = #real == 1
-            break
-        end
     end
 
     if current_is_last_real and avante_is_open then
