@@ -8,6 +8,42 @@ local ui_input = require("eltoto.ui.input")
 local last_session_name = nil
 local session_for_buf = {}
 
+local function last_session_path()
+    local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "eltoto")
+    vim.fn.mkdir(dir, "p")
+    return vim.fs.joinpath(dir, "last_persistent_process")
+end
+
+local function save_last_session_name(name)
+    last_session_name = name
+
+    local path = last_session_path()
+    if not name or name == "" then
+        if vim.fn.filereadable(path) == 1 then
+            vim.fn.delete(path)
+        end
+        return
+    end
+
+    vim.fn.writefile({ name }, path)
+end
+
+local function load_last_session_name()
+    if last_session_name ~= nil then
+        return last_session_name
+    end
+
+    local path = last_session_path()
+    if vim.fn.filereadable(path) ~= 1 then
+        return nil
+    end
+
+    local lines = vim.fn.readfile(path)
+    local name = vim.trim(lines[1] or "")
+    last_session_name = name ~= "" and name or nil
+    return last_session_name
+end
+
 local function managed_sessions()
     return process_backend.managed_sessions()
 end
@@ -31,7 +67,7 @@ local function attach(item)
         return
     end
     session_for_buf[bufnr] = item.name
-    last_session_name = item.name
+    save_last_session_name(item.name)
 end
 
 local function select_session(prompt, on_choice)
@@ -119,8 +155,9 @@ function M.attach_last()
         return
     end
 
-    if last_session_name and session_exists(last_session_name) then
-        attach({ session = process_backend.session_name(last_session_name), name = last_session_name })
+    local name = load_last_session_name()
+    if name and session_exists(name) then
+        attach({ session = process_backend.session_name(name), name = name })
         return
     end
 
@@ -219,8 +256,8 @@ function M.kill_current_or_select()
             end
         end
 
-        if last_session_name == name then
-            last_session_name = nil
+        if load_last_session_name() == name then
+            save_last_session_name(nil)
         end
 
         vim.notify("Killed persistent terminal '" .. name .. "'")
@@ -261,7 +298,7 @@ function M.kill_all()
     end
 
     process_backend.clear_registry()
-    last_session_name = nil
+    save_last_session_name(nil)
 
     local current = vim.api.nvim_get_current_buf()
     local target = buffers.get_last_edit_buf()

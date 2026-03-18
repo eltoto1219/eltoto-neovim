@@ -14,6 +14,10 @@ local function tree_api()
     return ok and api or nil
 end
 
+local function is_tree_buf(bufnr)
+    return vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].filetype == "NvimTree"
+end
+
 local function hide_tree_for_terminal()
     local api = tree_api()
     if api and api.tree.is_visible() then
@@ -126,7 +130,9 @@ local function capture_avante_return_state()
     local current_buf = vim.api.nvim_get_current_buf()
     local current_win = vim.api.nvim_get_current_win()
     local focus
-    if current_win == code_winid then
+    if is_tree_buf(current_buf) then
+        focus = "tree"
+    elseif current_win == code_winid then
         focus = "code"
     elseif vim.bo[current_buf].filetype == "AvanteInput" then
         focus = "input"
@@ -154,13 +160,20 @@ local function restore_avante_return_state(current_terminal_bufnr)
 
     avante_return_state_by_tab[current_tab()] = nil
 
-    if state.code_winid and vim.api.nvim_win_is_valid(state.code_winid) then
-        vim.api.nvim_set_current_win(state.code_winid)
+    local target_winid = state.code_winid
+    if not target_winid or not vim.api.nvim_win_is_valid(target_winid) then
+        target_winid = vim.api.nvim_get_current_win()
+    end
+
+    if target_winid and vim.api.nvim_win_is_valid(target_winid) then
+        vim.api.nvim_set_current_win(target_winid)
     end
 
     if state.code_bufnr and vim.api.nvim_buf_is_valid(state.code_bufnr) then
         if vim.api.nvim_get_current_buf() ~= state.code_bufnr then
-            safe_switch_buffer(state.code_bufnr)
+            if not safe_switch_buffer(state.code_bufnr) then
+                return false
+            end
         end
     end
 
@@ -188,7 +201,13 @@ local function restore_avante_return_state(current_terminal_bufnr)
         sidebar:toggle_code_window()
     end
 
-    if state.focus == "input" then
+    if state.focus == "tree" then
+        local api = tree_api()
+        if api then
+            reopen_tree_on_file_focus = false
+            pcall(api.tree.open, { find_file = true, focus = true })
+        end
+    elseif state.focus == "input" then
         sidebar:focus_input()
     elseif state.focus == "code" then
         if state.code_winid and vim.api.nvim_win_is_valid(state.code_winid) then
@@ -220,6 +239,10 @@ local function prepare_window_for_terminal_open()
 
     local sidebar = eltoto_avante.get_sidebar(false)
     local current_win = vim.api.nvim_get_current_win()
+    if is_tree_buf(current) and sidebar and sidebar:is_open() then
+        return capture_avante_return_state()
+    end
+
     if sidebar and sidebar:is_open() and sidebar.code and sidebar.code.winid == current_win then
         return capture_avante_return_state()
     end
@@ -336,19 +359,8 @@ end
 
 function M.toggle()
     local current = vim.api.nvim_get_current_buf()
-    local avante_state = nil
-
-    if eltoto_avante.is_sidebar_buffer(current) then
-        avante_state = capture_avante_return_state()
-        current = vim.api.nvim_get_current_buf()
-    else
-        local sidebar = eltoto_avante.get_sidebar(false)
-        local current_win = vim.api.nvim_get_current_win()
-        if sidebar and sidebar:is_open() and sidebar.code and sidebar.code.winid == current_win then
-            avante_state = capture_avante_return_state()
-            current = vim.api.nvim_get_current_buf()
-        end
-    end
+    local avante_state = prepare_window_for_terminal_open()
+    current = vim.api.nvim_get_current_buf()
 
     local terms = M.buffers()
 
@@ -424,8 +436,14 @@ local function cycle(offset)
             if target and target.bufnr ~= current then
                 hide_tree_for_terminal()
                 if not safe_switch_buffer(target.bufnr) then
+                    if M.is_terminal(vim.api.nvim_get_current_buf()) then
+                        enter_insert()
+                    end
                     return
                 end
+            end
+
+            if M.is_terminal(vim.api.nvim_get_current_buf()) then
                 enter_insert()
             end
             return
