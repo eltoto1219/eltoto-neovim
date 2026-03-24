@@ -66,6 +66,8 @@ local function attach(item)
     if not bufnr then
         return
     end
+    vim.b[bufnr].eltoto_tmux_session = item.name
+    terminal.configure_persistent_buffer(bufnr)
     session_for_buf[bufnr] = item.name
     save_last_session_name(item.name)
 end

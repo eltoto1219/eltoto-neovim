@@ -109,6 +109,17 @@ local function enter_insert()
     vim.cmd.startinsert()
 end
 
+local function termcodes(keys)
+    return vim.api.nvim_replace_termcodes(keys, true, false, true)
+end
+
+local tmux_client_keys = {
+    copy_mode = "\2[",
+    cancel_copy_mode = "\27[23~",
+    up = "\27[A",
+    down = "\27[B",
+}
+
 local safe_switch_buffer
 
 local function current_tab()
@@ -286,6 +297,98 @@ local function safe_enew()
     return with_current_window_buffer_unlocked(function()
         vim.cmd.enew()
     end)
+end
+
+local function tmux_terminal_job(bufnr)
+    if not M.is_terminal(bufnr) then
+        return nil
+    end
+
+    local session = vim.b[bufnr].eltoto_tmux_session
+    if type(session) ~= "string" or session == "" then
+        return nil
+    end
+
+    local job = vim.b[bufnr].terminal_job_id
+    if type(job) ~= "number" or job <= 0 then
+        return nil
+    end
+
+    return job
+end
+
+local function send_to_tmux_client(bufnr, keys)
+    local job = tmux_terminal_job(bufnr)
+    if not job then
+        return false
+    end
+
+    vim.api.nvim_chan_send(job, keys)
+    return true
+end
+
+local function set_tmux_copy_mode_state(bufnr, active)
+    vim.b[bufnr].eltoto_tmux_copy_mode_active = active and true or false
+end
+
+local function tmux_copy_mode_active(bufnr)
+    return vim.b[bufnr].eltoto_tmux_copy_mode_active == true
+end
+
+local function tmux_enter_copy_mode(bufnr)
+    if not send_to_tmux_client(bufnr, tmux_client_keys.copy_mode) then
+        return false
+    end
+
+    set_tmux_copy_mode_state(bufnr, true)
+    return true
+end
+
+local function tmux_cancel_copy_mode(bufnr)
+    if not tmux_copy_mode_active(bufnr) then
+        return false
+    end
+
+    if not send_to_tmux_client(bufnr, tmux_client_keys.cancel_copy_mode) then
+        return false
+    end
+
+    set_tmux_copy_mode_state(bufnr, false)
+    return true
+end
+
+local function resume_terminal_input()
+    local bufnr = vim.api.nvim_get_current_buf()
+    tmux_cancel_copy_mode(bufnr)
+    vim.cmd.startinsert()
+end
+
+local function terminal_scrollback(direction)
+    return function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        if tmux_enter_copy_mode(bufnr) and send_to_tmux_client(bufnr, direction) then
+            return
+        end
+
+        local fallback = direction == tmux_client_keys.up and "<Up>" or "<Down>"
+        vim.api.nvim_feedkeys(termcodes(fallback), "n", false)
+    end
+end
+
+local function terminal_copy_mode_key(keys, exits_copy_mode)
+    return function()
+        local bufnr = vim.api.nvim_get_current_buf()
+        tmux_enter_copy_mode(bufnr)
+        send_to_tmux_client(bufnr, keys)
+        if exits_copy_mode then
+            set_tmux_copy_mode_state(bufnr, false)
+        end
+    end
+end
+
+local function leave_copy_mode()
+    local bufnr = vim.api.nvim_get_current_buf()
+    tmux_cancel_copy_mode(bufnr)
 end
 
 function M.open_new()
@@ -502,6 +605,26 @@ function M.rename_current()
     end)
 end
 
+function M.configure_persistent_buffer(bufnr)
+    if not M.is_terminal(bufnr) then
+        return
+    end
+
+    local opts = { buffer = bufnr, silent = true, nowait = true }
+
+    vim.keymap.set("t", "<Esc>", function()
+        tmux_enter_copy_mode(bufnr)
+    end, vim.tbl_extend("force", opts, {
+        desc = "Enter tmux copy mode for persistent terminal",
+    }))
+    vim.keymap.set("t", "j", "j", vim.tbl_extend("force", opts, {
+        desc = "Send j immediately in persistent terminal",
+    }))
+    vim.keymap.set("t", "k", "k", vim.tbl_extend("force", opts, {
+        desc = "Send k immediately in persistent terminal",
+    }))
+end
+
 function M.setup()
     local group = vim.api.nvim_create_augroup("EltotoTerminalState", { clear = true })
 
@@ -529,15 +652,67 @@ function M.setup()
         callback = function(event)
             local opts = { buffer = event.buf, silent = true }
 
-            vim.keymap.set("n", "j", "gj", vim.tbl_extend("force", opts, {
+            vim.keymap.set("n", "j", terminal_scrollback(tmux_client_keys.down), vim.tbl_extend("force", opts, {
                 desc = "Terminal scrollback down",
             }))
-            vim.keymap.set("n", "k", "gk", vim.tbl_extend("force", opts, {
+            vim.keymap.set("n", "k", terminal_scrollback(tmux_client_keys.up), vim.tbl_extend("force", opts, {
                 desc = "Terminal scrollback up",
+            }))
+            vim.keymap.set("n", "v", terminal_copy_mode_key("v", false), vim.tbl_extend("force", opts, {
+                desc = "Begin tmux selection",
+            }))
+            vim.keymap.set("n", "y", terminal_copy_mode_key("y", true), vim.tbl_extend("force", opts, {
+                desc = "Copy tmux selection",
+            }))
+            vim.keymap.set("n", "q", leave_copy_mode, vim.tbl_extend("force", opts, {
+                desc = "Exit tmux copy mode",
+            }))
+            vim.keymap.set("n", "<Esc>", leave_copy_mode, vim.tbl_extend("force", opts, {
+                desc = "Exit tmux copy mode",
+            }))
+            vim.keymap.set("n", "<space>", leave_copy_mode, vim.tbl_extend("force", opts, {
+                desc = "Exit tmux copy mode",
+            }))
+            vim.keymap.set("n", "i", resume_terminal_input, vim.tbl_extend("force", opts, {
+                desc = "Return to terminal input mode",
+            }))
+            vim.keymap.set("n", "a", resume_terminal_input, vim.tbl_extend("force", opts, {
+                desc = "Return to terminal input mode",
+            }))
+            vim.keymap.set("n", "I", resume_terminal_input, vim.tbl_extend("force", opts, {
+                desc = "Return to terminal input mode",
+            }))
+            vim.keymap.set("n", "A", resume_terminal_input, vim.tbl_extend("force", opts, {
+                desc = "Return to terminal input mode",
             }))
             vim.keymap.set("n", "<leader>r", M.rename_current, vim.tbl_extend("force", opts, {
                 desc = "Rename current terminal",
             }))
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("ModeChanged", {
+        group = group,
+        pattern = "t:n",
+        callback = function()
+            tmux_enter_copy_mode(vim.api.nvim_get_current_buf())
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("ModeChanged", {
+        group = group,
+        pattern = "n:t",
+        callback = function()
+            tmux_cancel_copy_mode(vim.api.nvim_get_current_buf())
+        end,
+    })
+
+    vim.api.nvim_create_autocmd({ "BufLeave", "TermClose" }, {
+        group = group,
+        pattern = "term://*",
+        callback = function(event)
+            tmux_cancel_copy_mode(event.buf)
+            set_tmux_copy_mode_state(event.buf, false)
         end,
     })
 end

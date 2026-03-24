@@ -152,6 +152,29 @@ ensure_vim_alias_in_shell_rcs() {
     done
 }
 
+ensure_tmux_repo_config() {
+    local repo_tmux_conf="$ROOT_DIR/tmux.conf"
+    local user_tmux_conf="$HOME/.tmux.conf"
+
+    if [[ ! -f "$repo_tmux_conf" ]]; then
+        return
+    fi
+
+    touch "$user_tmux_conf"
+    if ! grep -Fq "$repo_tmux_conf" "$user_tmux_conf"; then
+        {
+            printf '\n# eltoto.nvim tmux integration\n'
+            printf 'source-file "%s"\n' "$repo_tmux_conf"
+        } >>"$user_tmux_conf"
+        echo "Added repo-local tmux config include to $user_tmux_conf"
+    fi
+
+    if command_exists tmux; then
+        tmux start-server >/dev/null 2>&1 || true
+        tmux source-file "$repo_tmux_conf" >/dev/null 2>&1 || true
+    fi
+}
+
 maybe_run_copilot_setup() {
     local choice
 
@@ -616,6 +639,7 @@ python -m pip install -r "$REQS_FILE"
 ensure_openai_api_key_placeholder
 ensure_vi_mode_in_shell_rcs
 ensure_vim_alias_in_shell_rcs
+ensure_tmux_repo_config
 
 if [[ -x "$FONT_SCRIPT" ]]; then
     echo "Installing Nerd Font"

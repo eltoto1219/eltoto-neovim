@@ -23,6 +23,10 @@ local function registry_path()
     return vim.fs.joinpath(dir, "persistent_processes.json")
 end
 
+local function config_path()
+    return vim.fs.joinpath(vim.fn.stdpath("config"), "tmux.conf")
+end
+
 local function tmux_command_args(args)
     return vim.list_extend({ "-S", socket_path() }, args)
 end
@@ -80,6 +84,10 @@ function M.session_name(display_name)
     return SESSION_PREFIX .. display_name
 end
 
+function M.pane_target(display_name)
+    return M.session_name(display_name) .. ":0.0"
+end
+
 function M.system(args)
     local escaped = { vim.fn.shellescape(tmux_path()) }
     for _, arg in ipairs(tmux_command_args(args)) do
@@ -94,15 +102,38 @@ function M.system(args)
     return vim.split(output, "\n", { trimempty = true }), nil
 end
 
+function M.source_config()
+    local path = config_path()
+    if vim.fn.filereadable(path) ~= 1 then
+        return true, nil
+    end
+
+    local _, err = M.system({ "source-file", path })
+    if err then
+        return nil, err
+    end
+
+    return true, nil
+end
+
 function M.command(args)
     return vim.list_extend({ tmux_path() }, tmux_command_args(vim.deepcopy(args)))
 end
 
 function M.configure_server()
     M.system({ "start-server" })
+    M.source_config()
     M.system({ "set-option", "-g", "default-terminal", "tmux-256color" })
     M.system({ "set-option", "-g", "default-shell", vim.o.shell })
     M.system({ "set-option", "-g", "status", "off" })
+end
+
+function M.copy_mode(display_name)
+    return M.system({ "copy-mode", "-t", M.pane_target(display_name) })
+end
+
+function M.copy_mode_command(display_name, command)
+    return M.system({ "send-keys", "-X", "-t", M.pane_target(display_name), command })
 end
 
 function M.has_session(name)
