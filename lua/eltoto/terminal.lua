@@ -612,6 +612,22 @@ function M.configure_persistent_buffer(bufnr)
 
     local opts = { buffer = bufnr, silent = true, nowait = true }
 
+    vim.keymap.set("n", "v", terminal_copy_mode_key("v", false), vim.tbl_extend("force", opts, {
+        desc = "Begin tmux selection",
+    }))
+    vim.keymap.set("n", "y", terminal_copy_mode_key("y", true), vim.tbl_extend("force", opts, {
+        desc = "Copy tmux selection",
+    }))
+    vim.keymap.set("n", "q", leave_copy_mode, vim.tbl_extend("force", opts, {
+        desc = "Exit tmux copy mode",
+    }))
+    vim.keymap.set("n", "<Esc>", leave_copy_mode, vim.tbl_extend("force", opts, {
+        desc = "Exit tmux copy mode",
+    }))
+    vim.keymap.set("n", "<space>", leave_copy_mode, vim.tbl_extend("force", opts, {
+        desc = "Exit tmux copy mode",
+    }))
+
     vim.keymap.set("t", "<Esc>", function()
         tmux_enter_copy_mode(bufnr)
     end, vim.tbl_extend("force", opts, {
@@ -657,21 +673,6 @@ function M.setup()
             }))
             vim.keymap.set("n", "k", terminal_scrollback(tmux_client_keys.up), vim.tbl_extend("force", opts, {
                 desc = "Terminal scrollback up",
-            }))
-            vim.keymap.set("n", "v", terminal_copy_mode_key("v", false), vim.tbl_extend("force", opts, {
-                desc = "Begin tmux selection",
-            }))
-            vim.keymap.set("n", "y", terminal_copy_mode_key("y", true), vim.tbl_extend("force", opts, {
-                desc = "Copy tmux selection",
-            }))
-            vim.keymap.set("n", "q", leave_copy_mode, vim.tbl_extend("force", opts, {
-                desc = "Exit tmux copy mode",
-            }))
-            vim.keymap.set("n", "<Esc>", leave_copy_mode, vim.tbl_extend("force", opts, {
-                desc = "Exit tmux copy mode",
-            }))
-            vim.keymap.set("n", "<space>", leave_copy_mode, vim.tbl_extend("force", opts, {
-                desc = "Exit tmux copy mode",
             }))
             vim.keymap.set("n", "i", resume_terminal_input, vim.tbl_extend("force", opts, {
                 desc = "Return to terminal input mode",
