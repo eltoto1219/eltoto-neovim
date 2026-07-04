@@ -171,7 +171,10 @@ ensure_shpool() {
         fi
 
         echo "Installing shpool (compiles from source; this can take a few minutes)"
-        "$HOME/.cargo/bin/cargo" install shpool
+        if ! "$HOME/.cargo/bin/cargo" install shpool; then
+            warn "cargo install shpool failed; skipping (persistent terminal processes will be unavailable)"
+            return
+        fi
 
         ensure_local_bin_on_path
         ln -sf "$HOME/.cargo/bin/shpool" "$HOME/.local/bin/shpool"

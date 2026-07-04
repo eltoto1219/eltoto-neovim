@@ -7,8 +7,6 @@ local M = {}
 -- injection, so it works the same on X11, Wayland, and over ssh.
 
 local recording_job = nil
-local wav_path = nil
-local target = nil -- captured at record start
 
 M.model = "base"
 
@@ -29,26 +27,35 @@ end
 
 local function capture_target()
     local bufnr = vim.api.nvim_get_current_buf()
+    local is_terminal = vim.bo[bufnr].buftype == "terminal"
     return {
         bufnr = bufnr,
-        channel = vim.bo[bufnr].buftype == "terminal" and vim.bo[bufnr].channel or nil,
+        channel = is_terminal and vim.bo[bufnr].channel or nil,
+        cursor = not is_terminal and vim.api.nvim_win_get_cursor(0) or nil,
     }
 end
 
-local function deliver(text)
-    if target and target.channel then
-        if vim.api.nvim_buf_is_valid(target.bufnr) and vim.bo[target.bufnr].channel == target.channel then
-            vim.api.nvim_chan_send(target.channel, text)
+local function deliver(tgt, text)
+    if tgt.channel then
+        if vim.api.nvim_buf_is_valid(tgt.bufnr) and vim.bo[tgt.bufnr].channel == tgt.channel then
+            vim.api.nvim_chan_send(tgt.channel, text)
             return
         end
         vim.notify("Dictation target closed; transcript: " .. text, vim.log.levels.WARN)
         return
     end
 
-    vim.api.nvim_put({ text }, "c", true, true)
+    if not vim.api.nvim_buf_is_valid(tgt.bufnr) then
+        vim.notify("Dictation target closed; transcript: " .. text, vim.log.levels.WARN)
+        return
+    end
+
+    local row = tgt.cursor[1] - 1
+    local col = tgt.cursor[2]
+    vim.api.nvim_buf_set_text(tgt.bufnr, row, col, row, col, { text })
 end
 
-local function transcribe(path)
+local function transcribe(path, tgt)
     vim.notify("Transcribing...")
     vim.system(M.transcribe_command(path), { text = true }, vim.schedule_wrap(function(result)
         vim.fn.delete(path)
@@ -64,7 +71,7 @@ local function transcribe(path)
             return
         end
 
-        deliver(text)
+        deliver(tgt, text)
     end))
 end
 
@@ -84,10 +91,9 @@ function M.toggle()
         return
     end
 
-    target = capture_target()
-    wav_path = vim.fn.tempname() .. ".wav"
+    local captured_target = capture_target()
+    local path = vim.fn.tempname() .. ".wav"
 
-    local path = wav_path
     recording_job = vim.fn.jobstart(M.record_command(path), {
         on_exit = vim.schedule_wrap(function(_, code)
             -- SIGTERM exit is the normal stop; only bail on startup failures
@@ -103,7 +109,7 @@ function M.toggle()
                 return
             end
 
-            transcribe(path)
+            transcribe(path, captured_target)
         end),
     })
 
