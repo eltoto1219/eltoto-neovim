@@ -16,9 +16,11 @@ local disposable_sequence = 0
 -- display_name -> { branch, dirty } updated async on BufEnter
 local git_cache = {}
 
-local function git_status(path, callback)
+local function run_git(path, args, callback)
+    local command = { "git", "-C", path }
+    vim.list_extend(command, args)
     vim.system(
-        { "git", "-C", path, "status", "--short", "--untracked-files=all" },
+        command,
         { text = true },
         function(result)
             vim.schedule(function()
@@ -33,6 +35,197 @@ local function git_status(path, callback)
             end)
         end
     )
+end
+
+local function git_status(path, callback)
+    run_git(path, { "status", "--short", "--untracked-files=all" }, callback)
+end
+
+local function local_default_branch(path, callback)
+    run_git(path, { "worktree", "list", "--porcelain" }, function(worktrees, detail)
+        if not worktrees then
+            callback(nil, detail)
+            return
+        end
+        local main_path = worktrees:match("^worktree ([^\r\n]+)")
+        if not main_path then
+            callback(nil, "cannot determine the main worktree")
+            return
+        end
+        run_git(main_path, { "symbolic-ref", "--short", "HEAD" }, function(branch, ref_detail)
+            branch = branch and vim.trim(branch) or nil
+            if not branch or branch == "" then
+                callback(nil, ref_detail or "cannot determine the local default branch")
+                return
+            end
+            callback(branch)
+        end)
+    end)
+end
+
+local function preferred_default_ref(path, branch, callback)
+    local local_ref = "refs/heads/" .. branch
+    local remote_ref = "refs/remotes/origin/" .. branch
+    run_git(path, { "rev-parse", "--verify", local_ref .. "^{commit}" }, function(local_commit)
+        run_git(path, { "rev-parse", "--verify", remote_ref .. "^{commit}" }, function(remote_commit)
+            if not remote_commit then
+                if local_commit then
+                    callback(local_ref)
+                else
+                    callback(nil, "default branch refs are unavailable")
+                end
+                return
+            end
+            if not local_commit then
+                callback(remote_ref)
+                return
+            end
+            run_git(path, { "rev-list", "--left-right", "--count", local_ref .. "..." .. remote_ref }, function(counts, detail)
+                if not counts then
+                    callback(nil, detail)
+                    return
+                end
+                local local_ahead, remote_ahead = counts:match("(%d+)%s+(%d+)")
+                if not local_ahead then
+                    callback(nil, "cannot compare local and remote default branches")
+                    return
+                end
+                if tonumber(local_ahead) > 0 and tonumber(remote_ahead) == 0 then
+                    callback(local_ref)
+                else
+                    callback(remote_ref)
+                end
+            end)
+        end)
+    end)
+end
+
+local function default_branch_ref(path, callback)
+    run_git(path, { "remote" }, function(remotes, remote_detail)
+        if not remotes then
+            callback(nil, remote_detail)
+            return
+        end
+
+        local has_origin = false
+        for remote in remotes:gmatch("[^\r\n]+") do
+            has_origin = has_origin or vim.trim(remote) == "origin"
+        end
+        if not has_origin then
+            local_default_branch(path, function(branch, detail)
+                callback(branch and "refs/heads/" .. branch or nil, detail)
+            end)
+            return
+        end
+
+        run_git(path, { "symbolic-ref", "--short", "refs/remotes/origin/HEAD" }, function(remote_head)
+            local branch = remote_head and vim.trim(remote_head):match("^origin/(.+)$") or nil
+            if branch then
+                preferred_default_ref(path, branch, callback)
+                return
+            end
+            local_default_branch(path, function(local_branch, detail)
+                if not local_branch then
+                    callback(nil, detail)
+                    return
+                end
+                preferred_default_ref(path, local_branch, callback)
+            end)
+        end)
+    end)
+end
+
+local function hash_untracked(path, files, callback)
+    local hashes = {}
+    local index = 1
+    local function next_file()
+        local file = files[index]
+        if not file then
+            callback(table.concat(hashes, "\0"))
+            return
+        end
+        run_git(path, { "hash-object", "--no-filters", "--", file }, function(hash, detail)
+            if not hash then
+                callback(nil, detail)
+                return
+            end
+            hashes[#hashes + 1] = file
+            hashes[#hashes + 1] = vim.trim(hash)
+            index = index + 1
+            next_file()
+        end)
+    end
+    next_file()
+end
+
+local function workspace_snapshot(path, callback)
+    git_status(path, function(status, detail)
+        if not status then
+            callback(nil, detail)
+            return
+        end
+        default_branch_ref(path, function(base_ref, base_detail)
+            if not base_ref then
+                callback(nil, base_detail)
+                return
+            end
+            run_git(path, { "rev-parse", "--verify", "HEAD^{commit}" }, function(head, head_detail)
+                if not head then
+                    callback(nil, head_detail)
+                    return
+                end
+                run_git(path, { "rev-parse", "--verify", base_ref .. "^{commit}" }, function(base, ref_detail)
+                    if not base then
+                        callback(nil, ref_detail)
+                        return
+                    end
+                    run_git(path, { "log", "--format=%h %s", base_ref .. "..HEAD" }, function(commits, log_detail)
+                        if not commits then
+                            callback(nil, log_detail)
+                            return
+                        end
+                        run_git(path, { "diff", "--no-ext-diff", "--no-textconv", "--binary", "--cached", "HEAD" }, function(staged, staged_detail)
+                            if not staged then
+                                callback(nil, staged_detail)
+                                return
+                            end
+                            run_git(path, { "diff", "--no-ext-diff", "--no-textconv", "--binary" }, function(unstaged, unstaged_detail)
+                                if not unstaged then
+                                    callback(nil, unstaged_detail)
+                                    return
+                                end
+                                run_git(path, { "ls-files", "--others", "--exclude-standard", "-z" }, function(raw_files, files_detail)
+                                    if not raw_files then
+                                        callback(nil, files_detail)
+                                        return
+                                    end
+                                    local files = vim.split(raw_files, "\0", { plain = true, trimempty = true })
+                                    hash_untracked(path, files, function(untracked, hash_detail)
+                                        if not untracked then
+                                            callback(nil, hash_detail)
+                                            return
+                                        end
+                                        callback({
+                                            status = status,
+                                            base_ref = base_ref,
+                                            commits = commits,
+                                            fingerprint = table.concat({
+                                                vim.trim(head),
+                                                vim.trim(base),
+                                                staged,
+                                                unstaged,
+                                                untracked,
+                                            }, "\0"),
+                                        })
+                                    end)
+                                end)
+                            end)
+                        end)
+                    end)
+                end)
+            end)
+        end)
+    end)
 end
 
 local function is_th_session(name)
@@ -295,14 +488,22 @@ function M.return_workspace()
 
         local task = display_name:sub(#TH_PREFIX + 1)
         local function inspect_and_confirm()
-            git_status(path, function(status, detail)
-                if not status then
+            workspace_snapshot(path, function(snapshot, detail)
+                if not snapshot then
                     vim.notify("treehouse: failed to inspect workspace: " .. detail, vim.log.levels.ERROR)
                     return
                 end
 
-                local status_lines = vim.split(vim.trim(status), "\n", { trimempty = true })
+                local status_lines = vim.split(vim.trim(snapshot.status), "\n", { trimempty = true })
+                local commit_lines = vim.split(vim.trim(snapshot.commits), "\n", { trimempty = true })
                 local lines = { "Return workspace: " .. task, "", "  path: " .. path, "" }
+                if #commit_lines > 0 then
+                    lines[#lines + 1] = "  COMMITS NOT IN " .. snapshot.base_ref .. ":"
+                    for _, l in ipairs(commit_lines) do
+                        lines[#lines + 1] = "  " .. l
+                    end
+                    lines[#lines + 1] = ""
+                end
                 if #status_lines > 0 then
                     lines[#lines + 1] = "  UNCOMMITTED CHANGES:"
                     for _, l in ipairs(status_lines) do
@@ -347,15 +548,15 @@ function M.return_workspace()
                 vim.keymap.set("n", "r", function()
                     if checking then return end
                     checking = true
-                    git_status(path, function(current_status, current_detail)
-                        if not current_status then
+                    workspace_snapshot(path, function(current_snapshot, current_detail)
+                        if not current_snapshot then
                             checking = false
                             vim.notify("treehouse: failed to inspect workspace: " .. current_detail, vim.log.levels.ERROR)
                             return
                         end
                         close()
-                        if current_status ~= status then
-                            vim.notify("treehouse: workspace changed; review the updated status", vim.log.levels.WARN)
+                        if current_snapshot.fingerprint ~= snapshot.fingerprint then
+                            vim.notify("treehouse: workspace changed; review the updated state", vim.log.levels.WARN)
                             inspect_and_confirm()
                             return
                         end
