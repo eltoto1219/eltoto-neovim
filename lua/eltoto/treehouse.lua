@@ -63,43 +63,6 @@ local function local_default_branch(path, callback)
     end)
 end
 
-local function preferred_default_ref(path, branch, callback)
-    local local_ref = "refs/heads/" .. branch
-    local remote_ref = "refs/remotes/origin/" .. branch
-    run_git(path, { "rev-parse", "--verify", local_ref .. "^{commit}" }, function(local_commit)
-        run_git(path, { "rev-parse", "--verify", remote_ref .. "^{commit}" }, function(remote_commit)
-            if not remote_commit then
-                if local_commit then
-                    callback(local_ref)
-                else
-                    callback(nil, "default branch refs are unavailable")
-                end
-                return
-            end
-            if not local_commit then
-                callback(remote_ref)
-                return
-            end
-            run_git(path, { "rev-list", "--left-right", "--count", local_ref .. "..." .. remote_ref }, function(counts, detail)
-                if not counts then
-                    callback(nil, detail)
-                    return
-                end
-                local local_ahead, remote_ahead = counts:match("(%d+)%s+(%d+)")
-                if not local_ahead then
-                    callback(nil, "cannot compare local and remote default branches")
-                    return
-                end
-                if tonumber(local_ahead) > 0 and tonumber(remote_ahead) == 0 then
-                    callback(local_ref)
-                else
-                    callback(remote_ref)
-                end
-            end)
-        end)
-    end)
-end
-
 local function default_branch_ref(path, callback)
     run_git(path, { "remote" }, function(remotes, remote_detail)
         if not remotes then
@@ -118,18 +81,24 @@ local function default_branch_ref(path, callback)
             return
         end
 
-        run_git(path, { "symbolic-ref", "--short", "refs/remotes/origin/HEAD" }, function(remote_head)
-            local branch = remote_head and vim.trim(remote_head):match("^origin/(.+)$") or nil
-            if branch then
-                preferred_default_ref(path, branch, callback)
+        run_git(path, { "ls-remote", "--symref", "origin", "HEAD" }, function(remote_head, head_detail)
+            if not remote_head then
+                callback(nil, head_detail)
                 return
             end
-            local_default_branch(path, function(local_branch, detail)
-                if not local_branch then
-                    callback(nil, detail)
+            local branch_ref = remote_head:match("ref:%s+(refs/heads/[^%s]+)%s+HEAD")
+            if not branch_ref then
+                callback(nil, "cannot determine origin's current default branch")
+                return
+            end
+            local branch = branch_ref:sub(#"refs/heads/" + 1)
+            local remote_ref = "refs/remotes/origin/" .. branch
+            run_git(path, { "fetch", "--no-tags", "origin", "+" .. branch_ref .. ":" .. remote_ref }, function(_, fetch_detail)
+                if fetch_detail then
+                    callback(nil, fetch_detail)
                     return
                 end
-                preferred_default_ref(path, local_branch, callback)
+                callback(remote_ref)
             end)
         end)
     end)
@@ -140,7 +109,7 @@ local function hash_untracked(path, files, callback)
     local batch = {}
     local exceptional = {}
     for _, file in ipairs(files) do
-        if file:find("\n", 1, true) then
+        if file:find("\n", 1, true) or vim.startswith(file, '"') then
             exceptional[#exceptional + 1] = file
         else
             batch[#batch + 1] = file
@@ -342,6 +311,24 @@ local function next_disposable_name()
         display_name = string.format("%stmp-%d-%d", TH_PREFIX, os.time(), disposable_sequence)
     until not session_name_in_use(display_name)
     return display_name
+end
+
+local function quiesce_session(display_name, callback)
+    if not process_backend.session_exists(display_name) then
+        callback(true)
+        return
+    end
+
+    vim.system(process_backend.command({ "kill", process_backend.session_name(display_name) }), { text = true }, function(result)
+        vim.schedule(function()
+            if result.code == 0 then
+                callback(true)
+                return
+            end
+            local detail = vim.trim((result.stdout or "") .. (result.stderr or ""))
+            callback(nil, detail ~= "" and detail or "exit code " .. result.code)
+        end)
+    end)
 end
 
 local function open_session(display_name, path, create)
@@ -591,15 +578,33 @@ function M.return_workspace()
                             return
                         end
 
-                        vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
-                            vim.schedule(function()
-                                if result.code ~= 0 then
-                                    vim.notify("treehouse return failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
+                        quiesce_session(display_name, function(quiesced, quiesce_detail)
+                            if not quiesced then
+                                vim.notify("treehouse: failed to stop workspace session: " .. quiesce_detail, vim.log.levels.ERROR)
+                                return
+                            end
+                            workspace_snapshot(path, function(final_snapshot, final_detail)
+                                if not final_snapshot then
+                                    vim.notify("treehouse: failed to inspect quiesced workspace: " .. final_detail, vim.log.levels.ERROR)
                                     return
                                 end
-                                workspace_paths[display_name] = nil
-                                git_cache[display_name] = nil
-                                vim.notify("Returned workspace: " .. task)
+                                if final_snapshot.fingerprint ~= current_snapshot.fingerprint then
+                                    vim.notify("treehouse: workspace changed while stopping its session; review the updated state", vim.log.levels.WARN)
+                                    inspect_and_confirm()
+                                    return
+                                end
+
+                                vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
+                                    vim.schedule(function()
+                                        if result.code ~= 0 then
+                                            vim.notify("treehouse return failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
+                                            return
+                                        end
+                                        workspace_paths[display_name] = nil
+                                        git_cache[display_name] = nil
+                                        vim.notify("Returned workspace: " .. task)
+                                    end)
+                                end)
                             end)
                         end)
                     end)
