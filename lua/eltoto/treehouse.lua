@@ -20,6 +20,17 @@ local function is_th_session(name)
     return vim.startswith(name, TH_PREFIX)
 end
 
+local function buffer_session(bufnr)
+    local tagged = vim.b[bufnr].eltoto_treehouse_session
+    if type(tagged) == "string" and is_th_session(tagged) then
+        return tagged
+    end
+
+    local buf_name = vim.api.nvim_buf_get_name(bufnr)
+    return buf_name:match("/P:(" .. vim.pesc(TH_PREFIX) .. ".+)$")
+        or buf_name:match("^P:(" .. vim.pesc(TH_PREFIX) .. ".+)$")
+end
+
 local function th_sessions()
     local result = {}
     for _, item in ipairs(process_backend.managed_sessions()) do
@@ -103,6 +114,7 @@ local function open_session(display_name, path, create)
         end
         return false
     end
+    vim.b[bufnr].eltoto_treehouse_session = display_name
     terminal.configure_persistent_buffer(bufnr)
 
     refresh_git_cache(display_name)
@@ -245,70 +257,77 @@ function M.return_workspace()
         end
 
         local task = display_name:sub(#TH_PREFIX + 1)
-        local st = vim.system({ "git", "-C", path, "status", "--short" }, { text = true }):wait()
-        local status_lines = vim.split(vim.trim(st.stdout or ""), "\n", { trimempty = true })
+        vim.system({ "git", "-C", path, "status", "--short", "--untracked-files=all" }, { text = true }, function(st)
+            vim.schedule(function()
+                if st.code ~= 0 then
+                    local detail = vim.trim(st.stderr or "")
+                    if detail == "" then detail = "exit code " .. st.code end
+                    vim.notify("treehouse: failed to inspect workspace: " .. detail, vim.log.levels.ERROR)
+                    return
+                end
 
-        -- build confirmation float
-        local lines = { "Return workspace: " .. task, "", "  path: " .. path, "" }
-        if #status_lines > 0 then
-            lines[#lines + 1] = "  UNCOMMITTED CHANGES:"
-            for _, l in ipairs(status_lines) do
-                lines[#lines + 1] = "  " .. l
-            end
-            lines[#lines + 1] = ""
-        else
-            lines[#lines + 1] = "  working tree clean"
-            lines[#lines + 1] = ""
-        end
-        lines[#lines + 1] = "  r  confirm return   (workspace will be reset)"
-        lines[#lines + 1] = "  q  cancel"
-
-        local width = math.max(50, math.min(70, vim.o.columns - 8))
-        local height = #lines + 2
-        local buf = vim.api.nvim_create_buf(false, true)
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-        vim.bo[buf].modifiable = false
-        vim.bo[buf].bufhidden = "wipe"
-
-        local win = vim.api.nvim_open_win(buf, true, {
-            relative = "editor",
-            width = width,
-            height = height,
-            row = math.max(math.floor((vim.o.lines - height) / 2) - 1, 0),
-            col = math.max(math.floor((vim.o.columns - width) / 2), 0),
-            style = "minimal",
-            border = "rounded",
-            title = " Return Workspace? ",
-            title_pos = "center",
-        })
-        vim.wo[win].wrap = false
-
-        local function close()
-            if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
-        end
-
-        local opts = { buffer = buf, silent = true, nowait = true }
-        vim.keymap.set("n", "q", close, opts)
-        vim.keymap.set("n", "<Esc>", close, opts)
-        vim.keymap.set("n", "r", function()
-            close()
-            vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
-                vim.schedule(function()
-                    if result.code ~= 0 then
-                        vim.notify("treehouse return failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
-                        return
+                local status_lines = vim.split(vim.trim(st.stdout or ""), "\n", { trimempty = true })
+                local lines = { "Return workspace: " .. task, "", "  path: " .. path, "" }
+                if #status_lines > 0 then
+                    lines[#lines + 1] = "  UNCOMMITTED CHANGES:"
+                    for _, l in ipairs(status_lines) do
+                        lines[#lines + 1] = "  " .. l
                     end
-                    workspace_paths[display_name] = nil
-                    git_cache[display_name] = nil
-                    vim.notify("Returned workspace: " .. task)
-                end)
+                    lines[#lines + 1] = ""
+                else
+                    lines[#lines + 1] = "  working tree clean"
+                    lines[#lines + 1] = ""
+                end
+                lines[#lines + 1] = "  r  confirm return   (workspace will be reset)"
+                lines[#lines + 1] = "  q  cancel"
+
+                local width = math.max(1, math.min(70, vim.o.columns - 8))
+                local height = math.max(1, math.min(#lines, math.floor(vim.o.lines * 0.8)))
+                local buf = vim.api.nvim_create_buf(false, true)
+                vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+                vim.bo[buf].modifiable = false
+                vim.bo[buf].bufhidden = "wipe"
+
+                local win = vim.api.nvim_open_win(buf, true, {
+                    relative = "editor",
+                    width = width,
+                    height = height,
+                    row = math.max(math.floor((vim.o.lines - height) / 2) - 1, 0),
+                    col = math.max(math.floor((vim.o.columns - width) / 2), 0),
+                    style = "minimal",
+                    border = "rounded",
+                    title = " Return Workspace? ",
+                    title_pos = "center",
+                })
+                vim.wo[win].wrap = false
+
+                local function close()
+                    if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+                end
+
+                local opts = { buffer = buf, silent = true, nowait = true }
+                vim.keymap.set("n", "q", close, opts)
+                vim.keymap.set("n", "<Esc>", close, opts)
+                vim.keymap.set("n", "r", function()
+                    close()
+                    vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
+                        vim.schedule(function()
+                            if result.code ~= 0 then
+                                vim.notify("treehouse return failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
+                                return
+                            end
+                            workspace_paths[display_name] = nil
+                            git_cache[display_name] = nil
+                            vim.notify("Returned workspace: " .. task)
+                        end)
+                    end)
+                end, opts)
             end)
-        end, opts)
+        end)
     end
 
     -- if current buffer is a treehouse session, use it directly
-    local buf_name = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
-    local display_name = buf_name:match("^P:(" .. vim.pesc(TH_PREFIX) .. ".+)$")
+    local display_name = buffer_session(vim.api.nvim_get_current_buf())
     if display_name then
         do_return(display_name)
         return
@@ -332,8 +351,7 @@ end
 -- statusline component: call from lualine or raw statusline
 -- returns "" when not in a treehouse buffer so it takes no space
 function M.statusline()
-    local buf_name = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
-    local display_name = buf_name:match("^P:(" .. vim.pesc(TH_PREFIX) .. ".+)$")
+    local display_name = buffer_session(vim.api.nvim_get_current_buf())
     if not display_name then return "" end
 
     local task = display_name:sub(#TH_PREFIX + 1)
@@ -352,8 +370,7 @@ function M.setup()
     vim.api.nvim_create_autocmd("BufEnter", {
         group = group,
         callback = function(event)
-            local buf_name = vim.api.nvim_buf_get_name(event.buf)
-            local display_name = buf_name:match("^P:(" .. vim.pesc(TH_PREFIX) .. ".+)$")
+            local display_name = buffer_session(event.buf)
             if display_name then
                 refresh_git_cache(display_name)
             end
