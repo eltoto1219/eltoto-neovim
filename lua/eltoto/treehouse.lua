@@ -10,6 +10,9 @@ local TH_PREFIX = "th:"
 -- display_name -> absolute workspace path; lost on restart (use <leader>fs to recover)
 local workspace_paths = {}
 
+local reserved_sessions = {}
+local disposable_sequence = 0
+
 -- display_name -> { branch, dirty } updated async on BufEnter
 local git_cache = {}
 
@@ -41,67 +44,134 @@ local function refresh_git_cache(display_name)
     end)
 end
 
-local function open_session(display_name, path)
-    workspace_paths[display_name] = path
+local function backend_available()
+    if process_backend.available() then
+        return true
+    end
+
+    process_backend.notify_missing()
+    return false
+end
+
+local function session_name_in_use(display_name)
+    return reserved_sessions[display_name]
+        or process_backend.session_exists(display_name)
+end
+
+local function reserve_session(display_name)
+    if session_name_in_use(display_name) then
+        vim.notify("treehouse: session already exists: " .. display_name, vim.log.levels.WARN)
+        return false
+    end
+
+    reserved_sessions[display_name] = true
+    return true
+end
+
+local function next_disposable_name()
+    local display_name
+    repeat
+        disposable_sequence = disposable_sequence + 1
+        display_name = string.format("%stmp-%d-%d", TH_PREFIX, os.time(), disposable_sequence)
+    until not session_name_in_use(display_name)
+    return display_name
+end
+
+local function open_session(display_name, path, create)
+    local exists = process_backend.session_exists(display_name)
+    if create and exists then
+        vim.notify("treehouse: session already exists: " .. display_name, vim.log.levels.ERROR)
+        return false
+    end
+    if not exists and (not path or vim.fn.isdirectory(path) ~= 1) then
+        vim.notify("treehouse: path unknown for new session " .. display_name, vim.log.levels.ERROR)
+        return false
+    end
+
+    if path then
+        workspace_paths[display_name] = path
+    end
 
     local bufnr = terminal.open_command(
         process_backend.attach_command(display_name),
-        "P:" .. display_name
+        "P:" .. display_name,
+        exists and nil or { cwd = path }
     )
-    if not bufnr then return end
+    if not bufnr then
+        if workspace_paths[display_name] == path then
+            workspace_paths[display_name] = nil
+        end
+        return false
+    end
     terminal.configure_persistent_buffer(bufnr)
 
-    -- cd into the workspace; shpool needs a moment before the pty is ready
-    if not process_backend.session_exists(display_name) then
-        vim.defer_fn(function()
-            if vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].channel ~= 0 then
-                vim.api.nvim_chan_send(vim.bo[bufnr].channel, "cd " .. vim.fn.shellescape(path) .. "\r")
-            end
-        end, 300)
-    end
-
     refresh_git_cache(display_name)
+    return true
+end
+
+local function finish_acquisition(display_name, path)
+    local opened = open_session(display_name, path, true)
+    reserved_sessions[display_name] = nil
+    if opened then return end
+
+    vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
+        if result.code == 0 then return end
+        vim.schedule(function()
+            vim.notify("treehouse: failed to release unused lease: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
+        end)
+    end)
 end
 
 -- <leader>fa — quick disposable lease, auto-named
 function M.acquire_disposable()
+    if not backend_available() then return end
+
+    local display_name = next_disposable_name()
+    if not reserve_session(display_name) then return end
     vim.system({ "treehouse", "get", "--lease" }, { text = true }, function(result)
         vim.schedule(function()
             if result.code ~= 0 then
+                reserved_sessions[display_name] = nil
                 vim.notify("treehouse: " .. vim.trim(result.stderr or "failed"), vim.log.levels.ERROR)
                 return
             end
             local path = vim.trim(result.stdout or "")
             if path == "" then
+                reserved_sessions[display_name] = nil
                 vim.notify("treehouse: no path returned", vim.log.levels.ERROR)
                 return
             end
-            local display_name = TH_PREFIX .. "tmp-" .. os.time()
-            open_session(display_name, path)
+            finish_acquisition(display_name, path)
         end)
     end)
 end
 
 -- <leader>fl — named leased workspace
 function M.acquire_leased()
+    if not backend_available() then return end
+
     ui_input.centered({ title = " Treehouse Task ", prompt = "Task name: " }, function(input)
         if not input then return end
         local name = vim.trim(input)
         if name == "" then return end
 
+        local display_name = TH_PREFIX .. name
+        if not reserve_session(display_name) then return end
         local args = { "treehouse", "get", "--lease", "--lease-holder", name }
         vim.system(args, { text = true }, function(result)
             vim.schedule(function()
                 if result.code ~= 0 then
+                    reserved_sessions[display_name] = nil
                     vim.notify("treehouse: " .. vim.trim(result.stderr or "failed"), vim.log.levels.ERROR)
                     return
                 end
                 local path = vim.trim(result.stdout or "")
                 if path == "" then
+                    reserved_sessions[display_name] = nil
                     vim.notify("treehouse: no path returned", vim.log.levels.ERROR)
                     return
                 end
-                open_session(TH_PREFIX .. name, path)
+                finish_acquisition(display_name, path)
             end)
         end)
     end)
@@ -160,7 +230,7 @@ function M.pick()
     ui_picker.select("Treehouse Workspaces", labels, function(index)
         local item = sessions[index]
         if item then
-            open_session(item.name, workspace_paths[item.name] or "")
+            open_session(item.name, workspace_paths[item.name], false)
         end
     end)
 end

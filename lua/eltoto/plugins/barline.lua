@@ -132,6 +132,7 @@ return {
                             }
                         },
                 lualine_x = {'encoding', 'fileformat', 'filetype',
+                            require("eltoto.treehouse").statusline,
                             {
                                 function()
                                     return "SHPOOL"
