@@ -114,6 +114,22 @@ M.sections = {
         },
     },
     {
+        title = "Treehouse Workspaces",
+        notes = {
+            "Treehouse manages a pool of git worktrees. Leased workspaces persist until explicitly returned; disposable ones are auto-named.",
+            "Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.",
+            "Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.",
+            "The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.",
+        },
+        entries = {
+            { lhs = "<leader>fa", desc = "acquire a disposable treehouse workspace and open a persistent session inside it" },
+            { lhs = "<leader>fl", desc = "acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it" },
+            { lhs = "<leader>fs", desc = "show treehouse status in a float (all pool workspaces, lease holders, paths)" },
+            { lhs = "<leader>fw", desc = "pick from active treehouse sessions; shows branch and dirty indicator" },
+            { lhs = "<leader>fr", desc = "return the current (or selected) leased workspace; shows git status and requires confirmation" },
+        },
+    },
+    {
         title = "Run Current File",
         notes = {
             "<leader>e uses the current buffer filetype to pick a runner.",
