@@ -94,7 +94,8 @@ function M.toggle()
     local captured_target = capture_target()
     local path = vim.fn.tempname() .. ".wav"
 
-    recording_job = vim.fn.jobstart(M.record_command(path), {
+    local this_job
+    this_job = vim.fn.jobstart(M.record_command(path), {
         on_exit = vim.schedule_wrap(function(_, code)
             -- SIGTERM exit is the normal stop; only bail on startup failures
             -- that left no usable recording behind.
@@ -105,13 +106,16 @@ function M.toggle()
                 else
                     vim.notify("No audio captured", vim.log.levels.WARN)
                 end
-                recording_job = nil
+                if recording_job == this_job then
+                    recording_job = nil
+                end
                 return
             end
 
             transcribe(path, captured_target)
         end),
     })
+    recording_job = this_job
 
     if recording_job <= 0 then
         recording_job = nil
