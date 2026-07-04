@@ -16,12 +16,12 @@ local disposable_sequence = 0
 -- display_name -> { branch, dirty } updated async on BufEnter
 local git_cache = {}
 
-local function run_git(path, args, callback)
+local function run_git(path, args, callback, stdin)
     local command = { "git", "-C", path }
     vim.list_extend(command, args)
     vim.system(
         command,
-        { text = true },
+        { text = true, stdin = stdin },
         function(result)
             vim.schedule(function()
                 if result.code == 0 then
@@ -137,9 +137,18 @@ end
 
 local function hash_untracked(path, files, callback)
     local hashes = {}
-    local index = 1
-    local function next_file()
-        local file = files[index]
+    local batch = {}
+    local exceptional = {}
+    for _, file in ipairs(files) do
+        if file:find("\n", 1, true) then
+            exceptional[#exceptional + 1] = file
+        else
+            batch[#batch + 1] = file
+        end
+    end
+
+    local function hash_exceptional(index)
+        local file = exceptional[index]
         if not file then
             callback(table.concat(hashes, "\0"))
             return
@@ -151,11 +160,31 @@ local function hash_untracked(path, files, callback)
             end
             hashes[#hashes + 1] = file
             hashes[#hashes + 1] = vim.trim(hash)
-            index = index + 1
-            next_file()
+            hash_exceptional(index + 1)
         end)
     end
-    next_file()
+
+    if #batch == 0 then
+        hash_exceptional(1)
+        return
+    end
+
+    run_git(path, { "hash-object", "--no-filters", "--stdin-paths" }, function(output, detail)
+        if not output then
+            callback(nil, detail)
+            return
+        end
+        local batch_hashes = vim.split(output, "\n", { plain = true, trimempty = true })
+        if #batch_hashes ~= #batch then
+            callback(nil, "unexpected hash count for untracked files")
+            return
+        end
+        for index, file in ipairs(batch) do
+            hashes[#hashes + 1] = file
+            hashes[#hashes + 1] = batch_hashes[index]
+        end
+        hash_exceptional(1)
+    end, table.concat(batch, "\n") .. "\n")
 end
 
 local function workspace_snapshot(path, callback)
@@ -292,6 +321,7 @@ end
 
 local function session_name_in_use(display_name)
     return reserved_sessions[display_name]
+        or workspace_paths[display_name] ~= nil
         or process_backend.session_exists(display_name)
 end
 
