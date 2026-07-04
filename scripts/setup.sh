@@ -170,8 +170,11 @@ ensure_shpool() {
             fi
         fi
 
+        local cargo_bin
+        cargo_bin=$(command -v cargo 2>/dev/null || echo "${CARGO_HOME:-$HOME/.cargo}/bin/cargo")
+
         echo "Installing shpool (compiles from source; this can take a few minutes)"
-        if ! "$HOME/.cargo/bin/cargo" install shpool; then
+        if ! "$cargo_bin" install shpool; then
             warn "cargo install shpool failed; skipping (persistent terminal processes will be unavailable)"
             return
         fi
