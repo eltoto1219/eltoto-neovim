@@ -79,6 +79,17 @@ Persistent Processes
 - <leader>pK : kill all persistent terminal processes at once
 - persistent <Esc> : leave terminal input mode and navigate the scrollback like a normal buffer
 
+Treehouse Workspaces
+- Treehouse manages a pool of git worktrees. Leased workspaces persist until explicitly returned; disposable ones are auto-named.
+- Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.
+- Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.
+- The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.
+- <leader>fa : acquire a disposable treehouse workspace and open a persistent session inside it
+- <leader>fl : acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it
+- <leader>fs : show treehouse status in a float (all pool workspaces, lease holders, paths)
+- <leader>fw : pick from active treehouse sessions; shows branch and dirty indicator
+- <leader>fr : return the current (or selected) leased workspace; shows git status and requires confirmation
+
 Run Current File
 - <leader>e uses the current buffer filetype to pick a runner.
 - Examples: python -> python3, lua -> lua, javascript -> node, typescript -> tsx, shell -> bash, go -> go run.
@@ -168,4 +179,3 @@ LSP and Diagnostics
 - <leader>r : show diagnostic float
 - <leader>q : send diagnostics to the location list
 - insert <C-h> : signature help
-

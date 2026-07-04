@@ -24,6 +24,7 @@ Portable, terminal-centered Neovim workflow with a repo-local Python toolchain, 
 - [Bootstrap](#-bootstrap)
 - [Python Environment](#-python-environment)
 - [Required Dependencies](#-required-dependencies)
+- [Treehouse Workspaces](#-treehouse-workspaces)
 - [AI Setup](#-ai-setup)
 - [AI Workflow](#-ai-workflow)
 - [Fonts](#-fonts)
@@ -56,6 +57,7 @@ This project turns Neovim into a portable personal workbench with:
 - a repo-local Python environment for Neovim itself, so editor tooling stays separate from project virtualenvs
 - custom regular-buffer and terminal-buffer workflows, including named terminal buffers like `T:1`, `T:2`, and direct `:b T:1` navigation
 - persistent terminal processes backed by `shpool`, so long-running jobs survive buffer closes and Neovim restarts
+- isolated Git workspaces managed by Treehouse and kept alive in persistent `shpool` sessions
 - AI assistance through Copilot inline completions and Claude/Codex harness sessions in terminal buffers
 - fast project search with Telescope
 - semantic symbol rename through LSP for supported languages
@@ -99,6 +101,7 @@ That is what makes it feel like a workbench instead of a pile of plugins.
 - Navigate regular buffers and terminal buffers with separate rules
 - Open, reuse, and cycle through named terminal buffers
 - Create, attach, list, and kill persistent terminal processes without leaving Neovim
+- Acquire, inspect, reopen, and return Treehouse-managed Git workspaces
 - Run current files through filetype-aware runners inside the Neovim terminal workflow
 - Use Claude or Codex harness sessions for in-editor AI chat workflows
 - Use GitHub Copilot for inline completions
@@ -127,9 +130,10 @@ A common workflow in this config looks like this:
 2. Edit across normal file buffers with `<leader>;`, `<leader>,`, splits, and window navigation.
 3. Use `<leader>t` or `<leader>T` for short-lived terminal work inside Neovim.
 4. Use `<leader>pn` to create a persistent shpool-backed process for anything long-running, then `<leader>pp` or `<leader>pa` to reattach later.
-5. Run the current file with `<leader>e`, using the filetype-aware runner instead of opening another shell manually.
-6. Use `<leader>a` to toggle the last AI buffer or `<leader>A` to open a new Claude or Codex session.
-7. Use `:AIStatus`, `:EltotoHealth`, and `./scripts/check.sh` when something looks wrong instead of guessing.
+5. Use `<leader>fa` for a disposable Treehouse workspace or `<leader>fl` for a named lease, then work in its persistent terminal session.
+6. Run the current file with `<leader>e`, using the filetype-aware runner instead of opening another shell manually.
+7. Use `<leader>a` to toggle the last AI buffer or `<leader>A` to open a new Claude or Codex session.
+8. Use `:AIStatus`, `:EltotoHealth`, and `./scripts/check.sh` when something looks wrong instead of guessing.
 
 The point is that editing, running code, long-lived processes, and AI assistance all live in one coherent workflow.
 
@@ -186,6 +190,22 @@ It also checks for these recommended tools, and prompts to install them when it 
 It also installs `shpool` (via a user-local rustup/cargo, no root required) to back persistent terminal processes, and writes `~/.config/shpool/config.toml` with a 10000-line restore window.
 
 On Linux it installs Homebrew user-locally (cloned to `~/.linuxbrew`, no root required) and adds `brew shellenv` to your shell rc. Note: the non-default prefix means some brew packages compile from source instead of using prebuilt bottles.
+
+Treehouse is an optional external dependency and is not installed by `scripts/setup.sh`. Install the `treehouse` executable using the [upstream instructions](https://github.com/kunchenguid/treehouse#install) and ensure it is on Neovim's `PATH` to use the workspace mappings.
+
+## 🌳 Treehouse Workspaces
+
+The Treehouse integration is a launcher and visibility layer over Treehouse's reusable Git worktree pool. Run the mappings from inside the repository whose pool you want to use:
+
+- `<leader>fa` acquires an auto-named disposable workspace.
+- `<leader>fl` prompts for a task name and records it as the lease holder.
+- `<leader>fw` reopens an active `shpool` session and shows its cached branch and dirty state.
+- `<leader>fs` shows the full `treehouse status` output, including workspace paths.
+- `<leader>fr` previews commits and working-tree changes, then returns and resets the workspace only after `r` confirms it.
+
+Every acquired workspace uses a durable Treehouse lease and a persistent `shpool` session named `th:<task>`. It appears as `P:th:<task>` in the persistent process picker and survives terminal-buffer closes and Neovim restarts. The statusline shows the task, branch, and `*` when the workspace is dirty.
+
+Workspace paths are cached only for the current Neovim process. After restarting Neovim, use `<leader>fs` to recover a path; existing Treehouse sessions can still be reopened with `<leader>fw`, but returning a workspace requires its path to have been cached in the current process.
 
 ## 🤖 AI Setup
 
@@ -280,6 +300,15 @@ This reports:
 - make sure `shpool` is installed (`./scripts/setup.sh` installs it user-locally, no root needed)
 - create a new process with `<leader>pn`
 - reopen it with `<leader>pp` or `<leader>pa`
+
+</details>
+
+<details>
+<summary><strong>Treehouse workspace mappings are not available</strong></summary>
+
+- install Treehouse using its [upstream installation instructions](https://github.com/kunchenguid/treehouse#install)
+- make sure `treehouse` and `shpool` are both available on Neovim's `PATH`
+- run Neovim from inside the Git repository whose Treehouse pool you want to use
 
 </details>
 
@@ -388,6 +417,17 @@ Persistent Processes
 - `<leader>pk`: kill the current persistent terminal process, or select one to kill
 - `<leader>pK`: kill all persistent terminal processes at once
 - `persistent <Esc>`: leave terminal input mode and navigate the scrollback like a normal buffer
+
+Treehouse Workspaces
+- Treehouse manages a pool of git worktrees. Leased workspaces persist until explicitly returned; disposable ones are auto-named.
+- Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.
+- Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.
+- The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.
+- `<leader>fa`: acquire a disposable treehouse workspace and open a persistent session inside it
+- `<leader>fl`: acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it
+- `<leader>fs`: show treehouse status in a float (all pool workspaces, lease holders, paths)
+- `<leader>fw`: pick from active treehouse sessions; shows branch and dirty indicator
+- `<leader>fr`: return the current (or selected) leased workspace; shows git status and requires confirmation
 
 Run Current File
 - <leader>e uses the current buffer filetype to pick a runner.

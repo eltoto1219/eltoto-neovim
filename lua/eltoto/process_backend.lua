@@ -49,7 +49,8 @@ function M.system(args)
 end
 
 -- "attach -f" both creates missing sessions and reclaims stale attachments
--- left behind when a previous nvim exited without detaching.
+-- left behind when a previous nvim exited without detaching. start_dir sets the
+-- working directory only when shpool creates the session.
 function M.attach_command(display_name, start_dir)
     local args = { "attach", "-f" }
     if start_dir then
