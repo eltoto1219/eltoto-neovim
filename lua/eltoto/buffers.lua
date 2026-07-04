@@ -13,19 +13,6 @@ local function is_terminal_buf(bufnr)
     return vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].buftype == "terminal"
 end
 
-local function is_avante_buf(bufnr)
-    if not vim.api.nvim_buf_is_valid(bufnr) then
-        return false
-    end
-
-    local filetype = vim.bo[bufnr].filetype or ""
-    if filetype:match("^Avante") then
-        return true
-    end
-
-    return vim.api.nvim_buf_get_name(bufnr) == "AVANTE_RESULT"
-end
-
 local function is_named_edit_buf(bufnr)
     return vim.api.nvim_buf_is_valid(bufnr)
         and vim.fn.buflisted(bufnr) == 1
@@ -59,19 +46,7 @@ local function file_windows_in_tab()
 
     for _, winid in ipairs(normal_windows_in_tab()) do
         local bufnr = vim.api.nvim_win_get_buf(winid)
-        if is_named_edit_buf(bufnr) and not is_avante_buf(bufnr) then
-            wins[#wins + 1] = winid
-        end
-    end
-
-    return wins
-end
-
-local function avante_windows_in_tab()
-    local wins = {}
-
-    for _, winid in ipairs(normal_windows_in_tab()) do
-        if is_avante_buf(vim.api.nvim_win_get_buf(winid)) then
+        if is_named_edit_buf(bufnr) then
             wins[#wins + 1] = winid
         end
     end
@@ -106,18 +81,6 @@ local function safe_switch_current_window_buffer(bufnr)
     end
 
     return ok
-end
-
-local function close_avante_sidebar()
-    local ok, avante = pcall(require, "avante")
-    if ok and type(avante.close_sidebar) == "function" then
-        pcall(avante.close_sidebar)
-        return
-    end
-
-    for _, winid in ipairs(avante_windows_in_tab()) do
-        safe_close_window(winid)
-    end
 end
 
 function M.is_named_edit_buf(bufnr)
@@ -227,31 +190,13 @@ function M.quit_current_or_window()
     local file_wins = file_windows_in_tab()
     local current = vim.api.nvim_get_current_buf()
     local current_is_term = is_terminal_buf(current)
-    local current_is_avante = is_avante_buf(current)
-    local current_is_file = is_named_edit_buf(current) and not current_is_avante
-    local avante_wins = avante_windows_in_tab()
-    local avante_is_open = #avante_wins > 0
+    local current_is_file = is_named_edit_buf(current)
     local real = M.real_edit_buffers()
     local terms = M.terminal_buffers()
     local current_is_last_real = false
 
     if not is_normal_window(current_win) then
         safe_close_window(current_win)
-        return
-    end
-
-    if current_is_avante then
-        local real = M.real_edit_buffers()
-        local terms = M.terminal_buffers()
-        close_avante_sidebar()
-        if #real == 0 and #terms == 0 then
-            vim.schedule(function()
-                local current_buf = vim.api.nvim_get_current_buf()
-                if vim.api.nvim_buf_is_valid(current_buf) and vim.api.nvim_buf_get_name(current_buf) == "" then
-                    vim.cmd.quit({ bang = true })
-                end
-            end)
-        end
         return
     end
 
@@ -272,7 +217,7 @@ function M.quit_current_or_window()
         return
     end
 
-    if #normal_wins > 1 and (not avante_is_open or current_is_term) then
+    if #normal_wins > 1 then
         safe_close_window(current_win)
         return
     end
@@ -303,13 +248,18 @@ function M.quit_current_or_window()
         return nil
     end
 
-    if current_is_last_real and avante_is_open then
-        close_avante_sidebar()
-    end
-
     if (current_is_term and #real == 0) or (current_is_last_real and #terms > 0) then
-        vim.cmd.qa({ bang = true })
-        return
+        -- An AI harness buffer with other terminals open just closes and
+        -- switches (its session stays cached for restore); as the last
+        -- buffer of any kind it quits nvim like everything else.
+        local ai_with_other_terms = current_is_term
+            and vim.b[current].eltoto_ai_kind ~= nil
+            and #terms > 1
+        if not ai_with_other_terms then
+            vim.cmd.qa({ bang = true })
+            return
+        end
+        -- fall through and switch to another terminal below
     end
 
     if current_is_term then

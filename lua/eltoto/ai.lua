@@ -1,7 +1,5 @@
 local M = {}
 
-M.codex_model = "gpt-5.3-codex"
-
 local function openai_key_status()
     local value = vim.env.OPENAI_API_KEY or ""
     return value ~= "" and "set" or "missing"
@@ -23,10 +21,6 @@ local function copilot_status()
     return output ~= "" and output or "unknown"
 end
 
-local function avante_status()
-    return pcall(require, "avante") and "ok" or "missing"
-end
-
 local function command_status(command_name)
     return vim.fn.executable(command_name) == 1 and "ok" or "missing"
 end
@@ -36,8 +30,7 @@ function M.report_lines()
         "Eltoto AI Status",
         "openai_api_key: " .. openai_key_status(),
         "codex: " .. command_status("codex"),
-        "avante_model: " .. M.codex_model,
-        "avante_module: " .. avante_status(),
+        "claude: " .. command_status("claude"),
         "copilot_status: " .. copilot_status(),
     }
 end

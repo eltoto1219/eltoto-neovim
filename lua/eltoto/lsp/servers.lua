@@ -14,8 +14,6 @@ function M.configs(capabilities)
         capabilities = capabilities,
         cmd = pylsp_cmd,
         cmd_env = env.python_env(),
-        configuration_sources = { "flake8", "ruff" },
-        formatCommand = { "black" },
         settings = {
             pylsp = {
                 plugins = {
@@ -31,7 +29,7 @@ function M.configs(capabilities)
                     pylsp_black = { enabled = true, args = { "--line-length=88" } },
                     pylsp_isort = { enabled = false },
                     pylsp_mypy = { enabled = false },
-                    pylint = { enabled = true, args = { "--ignore=E401,E501,E231", "-" } },
+                    pylint = { enabled = true },
                     flake8 = {
                         enabled = true,
                         ignore = { "E203", "E741", "E501", "W503", "E402" },

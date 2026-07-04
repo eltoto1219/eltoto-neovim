@@ -4,6 +4,7 @@ local buffers = require("eltoto.buffers")
 local process_backend = require("eltoto.process_backend")
 local terminal = require("eltoto.terminal")
 local ui_input = require("eltoto.ui.input")
+local ui_picker = require("eltoto.ui.picker")
 
 local last_session_name = nil
 local session_for_buf = {}
@@ -58,18 +59,14 @@ local function attach(item)
         return
     end
 
-    local bufnr = terminal.open_command(process_backend.command({
-        "attach-session",
-        "-t",
-        item.session,
-    }), item.name)
+    local bufnr = terminal.open_command(process_backend.attach_command(item.name), "P:" .. item.name)
     if not bufnr then
         return
     end
-    vim.b[bufnr].eltoto_tmux_session = item.name
     terminal.configure_persistent_buffer(bufnr)
     session_for_buf[bufnr] = item.name
     save_last_session_name(item.name)
+    return bufnr
 end
 
 local function select_session(prompt, on_choice)
@@ -80,71 +77,14 @@ local function select_session(prompt, on_choice)
         return
     end
 
-    local width = math.max(40, math.min(60, vim.o.columns - 8))
-    local height = math.min(#items + 2, math.max(4, vim.o.lines - 8))
-    local row = math.floor((vim.o.lines - height) / 2) - 1
-    local col = math.floor((vim.o.columns - width) / 2)
-    local bufnr = vim.api.nvim_create_buf(false, true)
-    local winid = vim.api.nvim_open_win(bufnr, true, {
-        relative = "editor",
-        width = width,
-        height = height,
-        row = math.max(row, 0),
-        col = math.max(col, 0),
-        style = "minimal",
-        border = "rounded",
-        title = " " .. prompt .. " ",
-        title_pos = "center",
-    })
-
-    local lines = {}
+    local labels = {}
     for index, item in ipairs(items) do
-        lines[#lines + 1] = string.format("%2d. %s", index, item.name)
-    end
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-
-    vim.bo[bufnr].bufhidden = "wipe"
-    vim.bo[bufnr].modifiable = false
-    vim.bo[bufnr].filetype = "eltoto_process_picker"
-
-    local function close_picker()
-        if vim.api.nvim_win_is_valid(winid) then
-            vim.api.nvim_win_close(winid, true)
-        end
+        labels[index] = string.format("%2d. %s", index, item.name)
     end
 
-    local function choose_current()
-        local line = vim.api.nvim_win_get_cursor(winid)[1]
-        local item = items[line]
-        close_picker()
-        if item then
-            on_choice(item)
-        end
-    end
-
-    local function move(delta)
-        return function()
-            local line = vim.api.nvim_win_get_cursor(winid)[1]
-            local target = line + delta
-            if target < 1 then
-                target = #items
-            elseif target > #items then
-                target = 1
-            end
-            vim.api.nvim_win_set_cursor(winid, { target, 0 })
-        end
-    end
-
-    local opts = { buffer = bufnr, silent = true, nowait = true }
-    vim.keymap.set("n", "j", move(1), opts)
-    vim.keymap.set("n", "k", move(-1), opts)
-    vim.keymap.set("n", "<Down>", move(1), opts)
-    vim.keymap.set("n", "<Up>", move(-1), opts)
-    vim.keymap.set("n", "<CR>", choose_current, opts)
-    vim.keymap.set("n", "q", close_picker, opts)
-    vim.keymap.set("n", "<Esc>", close_picker, opts)
-
-    vim.api.nvim_win_set_cursor(winid, { 1, 0 })
+    ui_picker.select(prompt, labels, function(index)
+        on_choice(items[index])
+    end)
 end
 
 function M.current_process_name(bufnr)
@@ -215,17 +155,16 @@ function M.new()
             }, function(command_input)
             local startup_command = command_input and vim.trim(command_input) or ""
 
-            local _, err = process_backend.create_session(name)
-            if err then
-                return
-            end
+            -- shpool creates missing sessions on attach; the startup command
+            -- goes straight to the terminal's pty once the shell is up.
+            local bufnr = attach({ session = process_backend.session_name(name), name = name })
 
-            attach({ session = process_backend.session_name(name), name = name })
-
-            if startup_command ~= "" then
+            if startup_command ~= "" and bufnr then
                 vim.defer_fn(function()
-                    process_backend.send_startup_command(name, startup_command)
-                end, 50)
+                    if vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].channel ~= 0 then
+                        vim.api.nvim_chan_send(vim.bo[bufnr].channel, startup_command .. "\r")
+                    end
+                end, 300)
             end
             end)
         end)
@@ -291,7 +230,7 @@ function M.kill_all()
 
     local names = {}
     for _, item in ipairs(items) do
-        local _, err = process_backend.system({ "kill-session", "-t", item.session })
+        local _, err = process_backend.kill_session(item.name)
         if err then
             vim.notify(err, vim.log.levels.ERROR)
             return
@@ -299,7 +238,6 @@ function M.kill_all()
         names[#names + 1] = item.name
     end
 
-    process_backend.clear_registry()
     save_last_session_name(nil)
 
     local current = vim.api.nvim_get_current_buf()

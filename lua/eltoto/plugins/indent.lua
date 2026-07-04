@@ -12,12 +12,6 @@ return {
                 },
                 exclude = {
                     filetypes = {
-                        "Avante",
-                        "AvanteInput",
-                        "AvantePromptInput",
-                        "AvanteSelectedCode",
-                        "AvanteSelectedFiles",
-                        "AvanteTodos",
                         "NvimTree",
                         "Trouble",
                         "help",

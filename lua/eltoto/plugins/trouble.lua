@@ -1,23 +1,23 @@
 return {
- "folke/trouble.nvim",
- dependencies = { "nvim-tree/nvim-web-devicons" },
- opts = {
-  -- your configuration comes here
- -- or leave it empty to use the default settings
- -- refer to the configuration section below
- },
- config=function ()
-        vim.keymap.set("n", "<leader>xx", function() require("trouble").toggle() end, { desc = "Trouble toggle" })
-        vim.keymap.set("n", "<leader>xw", function() require("trouble").toggle("workspace_diagnostics") end, { desc = "Trouble workspace diagnostics" })
-        vim.keymap.set("n", "<leader>xd", function() require("trouble").toggle("document_diagnostics") end, { desc = "Trouble document diagnostics" })
-        vim.keymap.set("n", "<leader>xq", function() require("trouble").toggle("quickfix") end, { desc = "Trouble quickfix" })
-        vim.keymap.set("n", "<leader>x]", function() require("trouble").toggle("loclist") end, { desc = "Trouble loclist" })
-        -- vim.keymap.set("n", "gR", function() require("trouble").toggle("lsp_references") end)
+    "folke/trouble.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    opts = {},
+    config = function(_, opts)
+        local trouble = require("trouble")
+        trouble.setup(opts)
+
+        vim.keymap.set("n", "<leader>xx", function() trouble.toggle("diagnostics") end, { desc = "Trouble toggle" })
+        vim.keymap.set("n", "<leader>xw", function() trouble.toggle("diagnostics") end, { desc = "Trouble workspace diagnostics" })
+        vim.keymap.set("n", "<leader>xd", function()
+            trouble.toggle({ mode = "diagnostics", filter = { buf = 0 } })
+        end, { desc = "Trouble document diagnostics" })
+        vim.keymap.set("n", "<leader>xq", function() trouble.toggle("qflist") end, { desc = "Trouble quickfix" })
+        vim.keymap.set("n", "<leader>x]", function() trouble.toggle("loclist") end, { desc = "Trouble loclist" })
         vim.keymap.set("n", "]d", function()
             vim.diagnostic.jump({ count = 1, float = false })
         end, { desc = "Next diagnostic" })
         vim.keymap.set("n", "[d", function()
             vim.diagnostic.jump({ count = -1, float = false })
         end, { nowait = true, desc = "Previous diagnostic" })
- end
+    end,
 }

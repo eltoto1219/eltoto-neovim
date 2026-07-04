@@ -2,12 +2,12 @@ local M = {}
 
 function M.setup()
     vim.diagnostic.config({
-        virtualtext = false,
+        virtual_text = false,
         float = {
             focusable = false,
             style = "minimal",
             border = "rounded",
-            source = "always",
+            source = true,
             header = "",
             prefix = "",
         },

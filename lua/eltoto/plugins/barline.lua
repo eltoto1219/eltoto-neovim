@@ -87,7 +87,7 @@ return {
             }
         end
 
-        local function tmux_indicator_color()
+        local function persistent_indicator_color()
             local diff_add = colors.get_hl("DiffAdd")
             local statusline = colors.get_hl("StatusLine")
 
@@ -134,17 +134,17 @@ return {
                 lualine_x = {'encoding', 'fileformat', 'filetype',
                             {
                                 function()
-                                    return "TMUX"
+                                    return "SHPOOL"
                                 end,
                                 cond = function()
                                     return processes.current_process_name() ~= nil
                                 end,
-                                color = tmux_indicator_color,
+                                color = persistent_indicator_color,
                             },
                             {
                                 'diagnostics',
                                 icons_enabled = true,
-                                sources = { 'nvim_lsp'},
+                                sources = { 'nvim_diagnostic' },
                                 sections = { 'error', 'warn', 'info', 'hint' },
 
                                 diagnostics_color = {

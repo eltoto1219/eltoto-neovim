@@ -16,13 +16,6 @@ require("eltoto.processes").setup()
 require("eltoto.run").register()
 require("eltoto.shortcuts").register()
 
-vim.api.nvim_create_autocmd("VimEnter", {
-  once = true,
-  callback = function()
-    require("eltoto.avante").open_startup_chat_if_empty()
-  end,
-})
-
 local function inspect_lsp_client()
   vim.ui.input({ prompt = 'Enter LSP client name: ' }, function(name)
     if not name then return end

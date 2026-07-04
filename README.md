@@ -8,7 +8,7 @@ Portable, terminal-centered Neovim workflow with a repo-local Python toolchain, 
 ### 🌟 At a Glance
 
 - ⚙️ Repo-local Python tooling for a stable Neovim environment
-- 🖥️ Separate workflows for file buffers, terminal buffers, and persistent tmux-backed processes
+- 🖥️ Separate workflows for file buffers, terminal buffers, and persistent shpool-backed processes
 - 🤖 Copilot for inline completion and Avante for explicit chat/edit workflows
 - 📚 Generated shortcut docs in the README, `SHORTCUTS.txt`, and `:Shortcuts`
 - 🩺 Setup, health, and check scripts so the config can verify itself
@@ -55,11 +55,11 @@ This project turns Neovim into a portable personal workbench with:
 
 - a repo-local Python environment for Neovim itself, so editor tooling stays separate from project virtualenvs
 - custom regular-buffer and terminal-buffer workflows, including named terminal buffers like `T:1`, `T:2`, and direct `:b T:1` navigation
-- persistent terminal processes backed by `tmux`, so long-running jobs survive buffer closes and Neovim restarts
+- persistent terminal processes backed by `shpool`, so long-running jobs survive buffer closes and Neovim restarts
 - AI assistance through Copilot inline completions and Avante chat/edit flows with OpenAI
 - fast project search with Telescope
 - semantic symbol rename through LSP for supported languages
-- filetype-aware run-current-file behavior via `<leader>e`, with session-only overrides through `:TermimalConfig`
+- filetype-aware run-current-file behavior via `<leader>e`, with session-only overrides through `:TerminalConfig`
 - bootstrap scripts for fonts, dependencies, Mason installs, Python setup, and plugin sync
 - a health command and a check script so the setup can verify itself after changes or on a fresh machine
 
@@ -71,7 +71,7 @@ Most configs stop at plugins and keymaps. This one goes further:
 
 - 🚀 It bootstraps a fresh machine quickly, including fonts, Python tooling, plugin sync, Mason installs, and optional Copilot auth.
 - 🧪 It isolates Neovim’s Python environment from project virtualenvs, which keeps editor tooling stable.
-- 🗂️ It has separate, deliberate workflows for files, terminals, and persistent tmux-backed processes.
+- 🗂️ It has separate, deliberate workflows for files, terminals, and persistent shpool-backed processes.
 - ▶️ It can run the current file intelligently by filetype instead of making you context-switch into another shell.
 - 🤖 It treats AI as a tool, not as the center of the editor. Copilot stays lightweight, while Avante now has a real workflow with history switching, tabline visibility, chat lifecycle actions, polished prompts, and terminal round-trip behavior.
 - 🩺 It is maintainable. `:EltotoHealth` and `./scripts/check.sh` give you a direct way to verify the setup instead of guessing.
@@ -95,7 +95,7 @@ That is what makes it feel like a workbench instead of a pile of plugins.
 - Install a Nerd Font with `./scripts/font_setup.sh`
 - Run a full config check with `./scripts/check.sh`
 - Open the generated shortcut popup with `:Shortcuts` or `<leader>?`
-- Configure session-only filetype runner overrides with `:TermimalConfig`
+- Configure session-only filetype runner overrides with `:TerminalConfig`
 - Navigate regular buffers and terminal buffers with separate rules
 - Open, reuse, and cycle through named terminal buffers
 - Create, attach, list, and kill persistent terminal processes without leaving Neovim
@@ -126,7 +126,7 @@ A common workflow in this config looks like this:
 1. Open a project and jump around with Telescope using `<leader>pf`, `<leader>ps`, `<leader>pg`, and `<leader>bb`.
 2. Edit across normal file buffers with `<leader>;`, `<leader>,`, splits, and window navigation.
 3. Use `<leader>t` or `<leader>T` for short-lived terminal work inside Neovim.
-4. Use `<leader>pn` to create a persistent tmux-backed process for anything long-running, then `<leader>pp` or `<leader>pa` to reattach later.
+4. Use `<leader>pn` to create a persistent shpool-backed process for anything long-running, then `<leader>pp` or `<leader>pa` to reattach later.
 5. Run the current file with `<leader>e`, using the filetype-aware runner instead of opening another shell manually.
 6. Use `<leader>aa` or `<leader>ac` when you want Codex help, while keeping normal editing and terminal work in the foreground.
 7. Use `:AIStatus`, `:EltotoHealth`, and `./scripts/check.sh` when something looks wrong instead of guessing.
@@ -179,10 +179,13 @@ It also checks for these recommended tools, and prompts to install them when it 
 - `nvim`
 - `tar`
 - `ripgrep`
-- `tmux`
 - `node`
 - `make`
 - `gcc` or `clang`
+
+It also installs `shpool` (via a user-local rustup/cargo, no root required) to back persistent terminal processes, and writes `~/.config/shpool/config.toml` with a 10000-line restore window.
+
+On Linux it installs Homebrew user-locally (cloned to `~/.linuxbrew`, no root required) and adds `brew shellenv` to your shell rc. Note: the non-default prefix means some brew packages compile from source instead of using prebuilt bottles.
 
 ## 🤖 AI Setup
 
@@ -278,7 +281,7 @@ This reports:
 <details>
 <summary><strong>Persistent terminal processes are not available</strong></summary>
 
-- make sure `tmux` is installed
+- make sure `shpool` is installed (`./scripts/setup.sh` installs it user-locally, no root needed)
 - create a new process with `<leader>pn`
 - reopen it with `<leader>pp` or `<leader>pa`
 
@@ -314,9 +317,9 @@ That opens a floating window with the shortcut list. Press `q` to close it.
 
 General
 - `<leader>?`: open the shortcuts popup
-- `:AIStatus`: show OpenAI key visibility, Avante model, Codex availability, and Copilot status
+- `:AIStatus`: show OpenAI key visibility, Codex/Claude availability, and Copilot status
 - `:EltotoHealth`: run the Neovim health check for this config
-- `:TermimalConfig`: open the runner popup for the current filetype and set default or session-only custom <leader>e behavior
+- `:TerminalConfig`: open the runner popup for the current filetype and set default or session-only custom <leader>e behavior
 - `:TerminalRename`: rename the current terminal buffer, or reset to default numbering with an empty name
 - `:TerminalProcesses`: open the persistent terminal picker
 - `:TerminalProcessNew`: create a new persistent terminal process
@@ -325,26 +328,29 @@ General
 - `:TerminalProcessAttachLast`: attach the last persistent terminal process
 - `:ShortcutsSync`: regenerate SHORTCUTS.txt and the README shortcuts section
 
+AI Harness Sessions
+- Claude and Codex run in plain terminal buffers with native scrollback, visual mode, and clipboard yank.
+- Tabs show Unnamed:<n> until the harness titles the session, then follow the session name live.
+- Quitting the harness process (Ctrl-C at its prompt) closes the buffer and drops the session from the cache; closing the buffer with qq keeps the session cached and restorable. Ctrl-C mid-turn just interrupts the harness.
+- Running plain vim with no file arguments restores the cached sessions born in the current directory with the most recent focused, or starts a fresh Claude session there if none exist.
+- `<leader>a`: toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
+- `<leader>A`: pick Claude or Codex and open a new AI session buffer
+- `<leader>d`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
+- `AI buffers`: get their own tabline group, separate from plain terminal buffers
+- `AI [a / ]a`: jump to the previous / next prompt line in the transcript (❯, ›, or >)
+- `:Claude`: open a new Claude Code session in a terminal buffer
+- `:Codex`: open a new Codex session in a terminal buffer
+- `:AIRestore`: restore the cached AI harness sessions born in the current directory
+
+Voice Dictation
+- Recording uses arecord; transcription runs locally with faster-whisper (CPU, 'base' model) from the repo venv.
+- The target is captured when recording starts: terminal buffers (AI prompts, shells) receive the text on their pty input, file buffers get it inserted at the cursor.
+- The first use downloads the model to ~/.cache/huggingface unless scripts/setup.sh already pre-downloaded it.
+- `<leader>v`: start voice recording; press again to stop, transcribe, and inject the text
+
 AI
-- Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.
-- Copilot handles inline completions separately and authenticates through :Copilot setup.
+- Copilot handles inline completions and authenticates through :Copilot setup.
 - This config does not currently force a specific Copilot inline model from Neovim.
-- Insert <C-s> accepts Copilot suggestions in normal editing buffers, while Avante keeps <C-s> for prompt submission inside Avante input windows.
-- `<leader>aa`: open Avante ask
-- `<leader>ac`: open Avante chat
-- `<leader>at`: toggle the Avante sidebar, or create a new chat if none exists
-- `visual <leader>aa`: ask Avante about the current visual selection
-- `visual <leader>ae`: send the current visual selection to Avante edit
-- `visual <leader>as`: send the current visual selection to Avante edit
-- `Avante window <leader>an`: start a new Avante chat
-- `Avante window <leader>ah`: open the Avante chat history picker
-- `Avante window <leader>ac`: clear the current Avante chat history
-- `Avante window <leader>ad`: delete the currently active Avante chat
-- `Avante window <leader>aD`: delete all saved Avante chats for the current project
-- `Avante window <leader>;`: switch to the next Avante chat history entry
-- `Avante window <leader>,`: switch to the previous Avante chat history entry
-- `Avante window <leader>z`: toggle the Avante layout between split and full view
-- `Avante prompt <C-s>`: submit the current Avante prompt or edit request
 - `insert <C-s>`: accept the current Copilot inline suggestion
 
 Files and Search
@@ -375,19 +381,23 @@ Terminal Workflow
 - `:b T:1`: jump directly to a named terminal buffer
 
 Persistent Processes
-- Persistent processes use tmux as a hidden backend so they survive terminal buffer closes and Neovim restarts.
-- Closing the attached terminal buffer detaches from the process; it does not kill the tmux session.
+- Persistent processes use shpool as a hidden backend so they survive terminal buffer closes and Neovim restarts.
+- Closing the attached terminal buffer detaches from the process; it does not kill the shpool session.
+- Scrollback is native: shpool passes raw output through, so the terminal buffer holds the history and all normal vim motions, search, visual mode, and yank work directly.
+- On reattach, shpool replays the last 10000 lines of session output into the buffer (session_restore_mode in ~/.config/shpool/config.toml).
+- `persistent buffers`: are labeled P:<name> in the tabline, and :b P:<name> jumps to one directly
 - `<leader>pp`: open the persistent terminal picker and attach to a selected process
 - `<leader>pn`: create a new persistent terminal process
 - `<leader>pa`: attach the last persistent terminal process
 - `<leader>pk`: kill the current persistent terminal process, or select one to kill
 - `<leader>pK`: kill all persistent terminal processes at once
+- `persistent <Esc>`: leave terminal input mode and navigate the scrollback like a normal buffer
 
 Run Current File
 - <leader>e uses the current buffer filetype to pick a runner.
 - Examples: python -> python3, lua -> lua, javascript -> node, typescript -> tsx, shell -> bash, go -> go run.
 - Non-runnable filetypes like json, yaml, html, and markdown show a warning instead of trying to execute.
-- Custom runner commands set through :TermimalConfig last only for the current Neovim session.
+- Custom runner commands set through :TerminalConfig last only for the current Neovim session.
 - `<leader>e`: open or reuse a terminal and run the current file with the resolved filetype runner
 
 Windows and Layout

@@ -1,7 +1,12 @@
 local term_group = vim.api.nvim_create_augroup("EltotoTerminal", { clear = true })
 local whitespace_group = vim.api.nvim_create_augroup("EltotoWhitespace", { clear = true })
 local filetype_group = vim.api.nvim_create_augroup("EltotoFiletypes", { clear = true })
-local terminal_bg = 0x1e1e1e
+-- Must stay in sync with the default background color nvim reports to
+-- :terminal apps via OSC 11 (hardcoded black, not configurable). TUIs like
+-- codex derive subtle highlights from the reported color; if the painted
+-- background differs, those highlights can become invisible (codex's input
+-- band is exactly #1e1e1e, the previous value of this variable).
+local terminal_bg = 0x000000
 
 local function set_terminal_highlights()
     local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
@@ -74,15 +79,6 @@ vim.api.nvim_create_autocmd({ "BufNewFile", "BufRead" }, {
     end,
 })
 
-vim.api.nvim_create_autocmd("FileType", {
-    group = filetype_group,
-    pattern = "AvanteInput",
-    callback = function()
-        vim.opt_local.number = true
-        vim.opt_local.relativenumber = true
-    end,
-})
-
 vim.api.nvim_create_autocmd({ "ColorScheme", "VimEnter" }, {
     group = term_group,
     callback = set_terminal_highlights,
@@ -92,14 +88,6 @@ vim.api.nvim_create_autocmd({ "TermOpen", "TermEnter", "BufEnter" }, {
     group = term_group,
     pattern = "term://*",
     callback = function()
-        local ok, eltoto_avante = pcall(require, "eltoto.avante")
-        if ok then
-            local sidebar = eltoto_avante.get_sidebar(false)
-            if sidebar and sidebar:is_open() then
-                sidebar:close({ goto_code_win = false })
-            end
-        end
-
         vim.wo.relativenumber = false
         vim.wo.number = false
         vim.opt_local.signcolumn = "no"

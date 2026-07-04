@@ -1,5 +1,4 @@
 local M = {}
-local eltoto_avante = require("eltoto.avante")
 local env = require("eltoto.env")
 local buffers = require("eltoto.buffers")
 local ui_input = require("eltoto.ui.input")
@@ -7,15 +6,10 @@ local ui_input = require("eltoto.ui.input")
 local last_terminal_bufnr = nil
 local custom_labels = {}
 local reopen_tree_on_file_focus = false
-local avante_return_state_by_tab = {}
 
 local function tree_api()
     local ok, api = pcall(require, "nvim-tree.api")
     return ok and api or nil
-end
-
-local function is_tree_buf(bufnr)
-    return vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].filetype == "NvimTree"
 end
 
 local function hide_tree_for_terminal()
@@ -109,157 +103,7 @@ local function enter_insert()
     vim.cmd.startinsert()
 end
 
-local function termcodes(keys)
-    return vim.api.nvim_replace_termcodes(keys, true, false, true)
-end
-
-local tmux_client_keys = {
-    copy_mode = "\2[",
-    cancel_copy_mode = "\27[23~",
-    up = "\27[A",
-    down = "\27[B",
-}
-
 local safe_switch_buffer
-
-local function current_tab()
-    return vim.api.nvim_get_current_tabpage()
-end
-
-local function capture_avante_return_state()
-    local sidebar = eltoto_avante.get_sidebar()
-    if not sidebar then
-        return nil
-    end
-
-    local code_winid = sidebar.code and sidebar.code.winid or nil
-    local code_bufnr = sidebar.code and sidebar.code.bufnr or nil
-    if not code_winid or not vim.api.nvim_win_is_valid(code_winid) then
-        return nil
-    end
-
-    local current_buf = vim.api.nvim_get_current_buf()
-    local current_win = vim.api.nvim_get_current_win()
-    local focus
-    if is_tree_buf(current_buf) then
-        focus = "tree"
-    elseif current_win == code_winid then
-        focus = "code"
-    elseif vim.bo[current_buf].filetype == "AvanteInput" then
-        focus = "input"
-    else
-        focus = "result"
-    end
-    local state = {
-        code_winid = code_winid,
-        code_bufnr = code_bufnr,
-        focus = focus,
-        was_full_view = sidebar.is_in_full_view == true,
-        term_bufnr = nil,
-    }
-
-    sidebar:close({ goto_code_win = true })
-    avante_return_state_by_tab[current_tab()] = state
-    return state
-end
-
-local function restore_avante_return_state(current_terminal_bufnr)
-    local state = avante_return_state_by_tab[current_tab()]
-    if not state or state.term_bufnr ~= current_terminal_bufnr then
-        return false
-    end
-
-    avante_return_state_by_tab[current_tab()] = nil
-
-    local target_winid = state.code_winid
-    if not target_winid or not vim.api.nvim_win_is_valid(target_winid) then
-        target_winid = vim.api.nvim_get_current_win()
-    end
-
-    if target_winid and vim.api.nvim_win_is_valid(target_winid) then
-        vim.api.nvim_set_current_win(target_winid)
-    end
-
-    if state.code_bufnr and vim.api.nvim_buf_is_valid(state.code_bufnr) then
-        if vim.api.nvim_get_current_buf() ~= state.code_bufnr then
-            if not safe_switch_buffer(state.code_bufnr) then
-                return false
-            end
-        end
-    end
-
-    local ok, avante = pcall(require, "avante")
-    if not ok then
-        return false
-    end
-    local avante_config = require("avante.config")
-    local previous_auto_focus_sidebar = avante_config.behaviour.auto_focus_sidebar
-    avante_config.behaviour.auto_focus_sidebar = false
-
-    local sidebar = eltoto_avante.get_sidebar(false)
-    if sidebar then
-        sidebar:open({ ask = false })
-    else
-        avante.open_sidebar({ ask = false })
-        sidebar = eltoto_avante.get_sidebar(false)
-    end
-
-    if not sidebar or not sidebar:is_open() then
-        return false
-    end
-
-    if state.was_full_view and not sidebar.is_in_full_view then
-        sidebar:toggle_code_window()
-    end
-
-    if state.focus == "tree" then
-        local api = tree_api()
-        if api then
-            reopen_tree_on_file_focus = false
-            pcall(api.tree.open, { find_file = true, focus = true })
-        end
-    elseif state.focus == "input" then
-        sidebar:focus_input()
-    elseif state.focus == "code" then
-        if state.code_winid and vim.api.nvim_win_is_valid(state.code_winid) then
-            vim.api.nvim_set_current_win(state.code_winid)
-        end
-        vim.cmd("noautocmd stopinsert")
-    else
-        sidebar:focus()
-        vim.schedule(function()
-            if sidebar:is_open() and sidebar.containers.result and vim.api.nvim_win_is_valid(sidebar.containers.result.winid) then
-                vim.api.nvim_set_current_win(sidebar.containers.result.winid)
-                vim.cmd("noautocmd stopinsert")
-            end
-        end)
-    end
-
-    vim.schedule(function()
-        avante_config.behaviour.auto_focus_sidebar = previous_auto_focus_sidebar
-    end)
-
-    return true
-end
-
-local function prepare_window_for_terminal_open()
-    local current = vim.api.nvim_get_current_buf()
-    if eltoto_avante.is_sidebar_buffer(current) then
-        return capture_avante_return_state()
-    end
-
-    local sidebar = eltoto_avante.get_sidebar(false)
-    local current_win = vim.api.nvim_get_current_win()
-    if is_tree_buf(current) and sidebar and sidebar:is_open() then
-        return capture_avante_return_state()
-    end
-
-    if sidebar and sidebar:is_open() and sidebar.code and sidebar.code.winid == current_win then
-        return capture_avante_return_state()
-    end
-
-    return nil
-end
 
 local function with_current_window_buffer_unlocked(callback)
     local current_win = vim.api.nvim_get_current_win()
@@ -299,115 +143,29 @@ local function safe_enew()
     end)
 end
 
-local function tmux_terminal_job(bufnr)
-    if not M.is_terminal(bufnr) then
-        return nil
-    end
-
-    local session = vim.b[bufnr].eltoto_tmux_session
-    if type(session) ~= "string" or session == "" then
-        return nil
-    end
-
-    local job = vim.b[bufnr].terminal_job_id
-    if type(job) ~= "number" or job <= 0 then
-        return nil
-    end
-
-    return job
-end
-
-local function send_to_tmux_client(bufnr, keys)
-    local job = tmux_terminal_job(bufnr)
-    if not job then
-        return false
-    end
-
-    vim.api.nvim_chan_send(job, keys)
-    return true
-end
-
-local function set_tmux_copy_mode_state(bufnr, active)
-    vim.b[bufnr].eltoto_tmux_copy_mode_active = active and true or false
-end
-
-local function tmux_copy_mode_active(bufnr)
-    return vim.b[bufnr].eltoto_tmux_copy_mode_active == true
-end
-
-local function tmux_enter_copy_mode(bufnr)
-    if not send_to_tmux_client(bufnr, tmux_client_keys.copy_mode) then
-        return false
-    end
-
-    set_tmux_copy_mode_state(bufnr, true)
-    return true
-end
-
-local function tmux_cancel_copy_mode(bufnr)
-    if not tmux_copy_mode_active(bufnr) then
-        return false
-    end
-
-    if not send_to_tmux_client(bufnr, tmux_client_keys.cancel_copy_mode) then
-        return false
-    end
-
-    set_tmux_copy_mode_state(bufnr, false)
-    return true
-end
-
 local function resume_terminal_input()
-    local bufnr = vim.api.nvim_get_current_buf()
-    tmux_cancel_copy_mode(bufnr)
     vim.cmd.startinsert()
 end
 
-local function terminal_scrollback(direction)
-    return function()
-        local bufnr = vim.api.nvim_get_current_buf()
-        if tmux_enter_copy_mode(bufnr) and send_to_tmux_client(bufnr, direction) then
-            return
-        end
-
-        local fallback = direction == tmux_client_keys.up and "<Up>" or "<Down>"
-        vim.api.nvim_feedkeys(termcodes(fallback), "n", false)
-    end
-end
-
-local function terminal_copy_mode_key(keys, exits_copy_mode)
-    return function()
-        local bufnr = vim.api.nvim_get_current_buf()
-        tmux_enter_copy_mode(bufnr)
-        send_to_tmux_client(bufnr, keys)
-        if exits_copy_mode then
-            set_tmux_copy_mode_state(bufnr, false)
-        end
-    end
-end
-
-local function leave_copy_mode()
-    local bufnr = vim.api.nvim_get_current_buf()
-    tmux_cancel_copy_mode(bufnr)
-end
-
 function M.open_new()
-    local avante_state = prepare_window_for_terminal_open()
     hide_tree_for_terminal()
     if not safe_enew() then
         return
     end
     vim.fn.termopen(vim.o.shell, { env = env.terminal_env() })
-    local bufnr = vim.api.nvim_get_current_buf()
-    if avante_state and M.is_terminal(bufnr) then
-        avante_state.term_bufnr = bufnr
-        avante_return_state_by_tab[current_tab()] = avante_state
-    end
     enter_insert()
 end
 
-function M.open_command(command, label)
-    local avante_state = prepare_window_for_terminal_open()
+function M.set_label(bufnr, label)
+    if label and label ~= "" then
+        custom_labels[bufnr] = label
+    else
+        custom_labels[bufnr] = nil
+    end
+    M.refresh_names()
+end
+
+function M.open_command(command, label, opts)
     hide_tree_for_terminal()
     if not safe_enew() then
         return nil
@@ -418,19 +176,39 @@ function M.open_command(command, label)
         custom_labels[bufnr] = label
     end
 
-    vim.fn.termopen(command, { env = env.terminal_env() })
-    vim.schedule(M.refresh_names)
-    if avante_state and M.is_terminal(bufnr) then
-        avante_state.term_bufnr = bufnr
-        avante_return_state_by_tab[current_tab()] = avante_state
+    -- Tagged before termopen so the TermOpen/BufEnter autocmds firing inside
+    -- it already see this as an AI buffer (e.g. last-terminal tracking).
+    if opts and opts.ai_kind then
+        vim.b[bufnr].eltoto_ai_kind = opts.ai_kind
     end
+
+    local job_opts = { env = env.terminal_env() }
+    if opts and opts.cwd and vim.fn.isdirectory(opts.cwd) == 1 then
+        job_opts.cwd = opts.cwd
+    end
+
+    vim.fn.termopen(command, job_opts)
+    vim.schedule(M.refresh_names)
     enter_insert()
 
     return bufnr
 end
 
+-- AI harness buffers are terminals too, but <leader>t must never land on
+-- them: they have their own toggle. Fallback selection uses this list.
+local function plain_terminal_buffers()
+    local terms = {}
+    for _, bufnr in ipairs(M.buffers()) do
+        if vim.b[bufnr].eltoto_ai_kind == nil then
+            terms[#terms + 1] = bufnr
+        end
+    end
+
+    return terms
+end
+
 function M.ensure()
-    local terms = M.buffers()
+    local terms = plain_terminal_buffers()
     local current = vim.api.nvim_get_current_buf()
 
     if M.is_terminal(current) then
@@ -462,16 +240,9 @@ end
 
 function M.toggle()
     local current = vim.api.nvim_get_current_buf()
-    local avante_state = prepare_window_for_terminal_open()
-    current = vim.api.nvim_get_current_buf()
-
-    local terms = M.buffers()
+    local terms = plain_terminal_buffers()
 
     if M.is_terminal(current) then
-        if restore_avante_return_state(current) then
-            return
-        end
-
         local last_edit = buffers.get_last_edit_buf()
         if last_edit then
             if not safe_switch_buffer(last_edit) then
@@ -497,10 +268,6 @@ function M.toggle()
         if not safe_switch_buffer(last_terminal) then
             return
         end
-        if avante_state then
-            avante_state.term_bufnr = vim.api.nvim_get_current_buf()
-            avante_return_state_by_tab[current_tab()] = avante_state
-        end
         enter_insert()
         return
     end
@@ -510,19 +277,11 @@ function M.toggle()
         if not safe_switch_buffer(terms[1]) then
             return
         end
-        if avante_state then
-            avante_state.term_bufnr = vim.api.nvim_get_current_buf()
-            avante_return_state_by_tab[current_tab()] = avante_state
-        end
         enter_insert()
         return
     end
 
     M.open_new()
-    if avante_state and M.is_terminal(vim.api.nvim_get_current_buf()) then
-        avante_state.term_bufnr = vim.api.nvim_get_current_buf()
-        avante_return_state_by_tab[current_tab()] = avante_state
-    end
 end
 
 local function cycle(offset)
@@ -610,35 +369,17 @@ function M.configure_persistent_buffer(bufnr)
         return
     end
 
-    local opts = { buffer = bufnr, silent = true, nowait = true }
+    -- shpool passes raw bytes through, so nvim's terminal emulator owns the
+    -- history: native motions, search, visual mode, and yank work directly.
+    -- 10000 matches the shpool restore window (session_restore_mode lines).
+    vim.bo[bufnr].scrollback = 10000
 
-    vim.keymap.set("n", "v", terminal_copy_mode_key("v", false), vim.tbl_extend("force", opts, {
-        desc = "Begin tmux selection",
-    }))
-    vim.keymap.set("n", "y", terminal_copy_mode_key("y", true), vim.tbl_extend("force", opts, {
-        desc = "Copy tmux selection",
-    }))
-    vim.keymap.set("n", "q", leave_copy_mode, vim.tbl_extend("force", opts, {
-        desc = "Exit tmux copy mode",
-    }))
-    vim.keymap.set("n", "<Esc>", leave_copy_mode, vim.tbl_extend("force", opts, {
-        desc = "Exit tmux copy mode",
-    }))
-    vim.keymap.set("n", "<space>", leave_copy_mode, vim.tbl_extend("force", opts, {
-        desc = "Exit tmux copy mode",
-    }))
-
-    vim.keymap.set("t", "<Esc>", function()
-        tmux_enter_copy_mode(bufnr)
-    end, vim.tbl_extend("force", opts, {
-        desc = "Enter tmux copy mode for persistent terminal",
-    }))
-    vim.keymap.set("t", "j", "j", vim.tbl_extend("force", opts, {
-        desc = "Send j immediately in persistent terminal",
-    }))
-    vim.keymap.set("t", "k", "k", vim.tbl_extend("force", opts, {
-        desc = "Send k immediately in persistent terminal",
-    }))
+    vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", {
+        buffer = bufnr,
+        silent = true,
+        nowait = true,
+        desc = "Leave terminal input mode",
+    })
 end
 
 function M.setup()
@@ -654,7 +395,11 @@ function M.setup()
             if event.event == "BufWipeout" or event.event == "BufDelete" then
                 custom_labels[event.buf] = nil
             elseif M.is_terminal(event.buf) then
-                last_terminal_bufnr = event.buf
+                -- AI harness buffers have their own toggle (<leader>A); keep
+                -- <leader>t pointed at the last plain terminal.
+                if vim.b[event.buf].eltoto_ai_kind == nil then
+                    last_terminal_bufnr = event.buf
+                end
                 hide_tree_for_terminal()
             elseif buffers.is_named_edit_buf(event.buf) then
                 restore_tree_for_file()
@@ -668,12 +413,6 @@ function M.setup()
         callback = function(event)
             local opts = { buffer = event.buf, silent = true }
 
-            vim.keymap.set("n", "j", terminal_scrollback(tmux_client_keys.down), vim.tbl_extend("force", opts, {
-                desc = "Terminal scrollback down",
-            }))
-            vim.keymap.set("n", "k", terminal_scrollback(tmux_client_keys.up), vim.tbl_extend("force", opts, {
-                desc = "Terminal scrollback up",
-            }))
             vim.keymap.set("n", "i", resume_terminal_input, vim.tbl_extend("force", opts, {
                 desc = "Return to terminal input mode",
             }))
@@ -692,30 +431,6 @@ function M.setup()
         end,
     })
 
-    vim.api.nvim_create_autocmd("ModeChanged", {
-        group = group,
-        pattern = "t:n",
-        callback = function()
-            tmux_enter_copy_mode(vim.api.nvim_get_current_buf())
-        end,
-    })
-
-    vim.api.nvim_create_autocmd("ModeChanged", {
-        group = group,
-        pattern = "n:t",
-        callback = function()
-            tmux_cancel_copy_mode(vim.api.nvim_get_current_buf())
-        end,
-    })
-
-    vim.api.nvim_create_autocmd({ "BufLeave", "TermClose" }, {
-        group = group,
-        pattern = "term://*",
-        callback = function(event)
-            tmux_cancel_copy_mode(event.buf)
-            set_tmux_copy_mode_state(event.buf, false)
-        end,
-    })
 end
 
 function M.close_tree_permanently()

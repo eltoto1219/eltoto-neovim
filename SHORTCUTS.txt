@@ -3,9 +3,9 @@ Eltoto Neovim Shortcuts
 
 General
 - <leader>? : open the shortcuts popup
-- :AIStatus : show OpenAI key visibility, Avante model, Codex availability, and Copilot status
+- :AIStatus : show OpenAI key visibility, Codex/Claude availability, and Copilot status
 - :EltotoHealth : run the Neovim health check for this config
-- :TermimalConfig : open the runner popup for the current filetype and set default or session-only custom <leader>e behavior
+- :TerminalConfig : open the runner popup for the current filetype and set default or session-only custom <leader>e behavior
 - :TerminalRename : rename the current terminal buffer, or reset to default numbering with an empty name
 - :TerminalProcesses : open the persistent terminal picker
 - :TerminalProcessNew : create a new persistent terminal process
@@ -14,26 +14,29 @@ General
 - :TerminalProcessAttachLast : attach the last persistent terminal process
 - :ShortcutsSync : regenerate SHORTCUTS.txt and the README shortcuts section
 
+AI Harness Sessions
+- Claude and Codex run in plain terminal buffers with native scrollback, visual mode, and clipboard yank.
+- Tabs show Unnamed:<n> until the harness titles the session, then follow the session name live.
+- Quitting the harness process (Ctrl-C at its prompt) closes the buffer and drops the session from the cache; closing the buffer with qq keeps the session cached and restorable. Ctrl-C mid-turn just interrupts the harness.
+- Running plain vim with no file arguments restores the cached sessions born in the current directory with the most recent focused, or starts a fresh Claude session there if none exist.
+- <leader>a : toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
+- <leader>A : pick Claude or Codex and open a new AI session buffer
+- <leader>d : open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
+- AI buffers : get their own tabline group, separate from plain terminal buffers
+- AI [a / ]a : jump to the previous / next prompt line in the transcript (❯, ›, or >)
+- :Claude : open a new Claude Code session in a terminal buffer
+- :Codex : open a new Codex session in a terminal buffer
+- :AIRestore : restore the cached AI harness sessions born in the current directory
+
+Voice Dictation
+- Recording uses arecord; transcription runs locally with faster-whisper (CPU, 'base' model) from the repo venv.
+- The target is captured when recording starts: terminal buffers (AI prompts, shells) receive the text on their pty input, file buffers get it inserted at the cursor.
+- The first use downloads the model to ~/.cache/huggingface unless scripts/setup.sh already pre-downloaded it.
+- <leader>v : start voice recording; press again to stop, transcribe, and inject the text
+
 AI
-- Avante is configured to use OpenAI with the gpt-5.3-codex model in agentic mode.
-- Copilot handles inline completions separately and authenticates through :Copilot setup.
+- Copilot handles inline completions and authenticates through :Copilot setup.
 - This config does not currently force a specific Copilot inline model from Neovim.
-- Insert <C-s> accepts Copilot suggestions in normal editing buffers, while Avante keeps <C-s> for prompt submission inside Avante input windows.
-- <leader>aa : open Avante ask
-- <leader>ac : open Avante chat
-- <leader>at : toggle the Avante sidebar, or create a new chat if none exists
-- visual <leader>aa : ask Avante about the current visual selection
-- visual <leader>ae : send the current visual selection to Avante edit
-- visual <leader>as : send the current visual selection to Avante edit
-- Avante window <leader>an : start a new Avante chat
-- Avante window <leader>ah : open the Avante chat history picker
-- Avante window <leader>ac : clear the current Avante chat history
-- Avante window <leader>ad : delete the currently active Avante chat
-- Avante window <leader>aD : delete all saved Avante chats for the current project
-- Avante window <leader>; : switch to the next Avante chat history entry
-- Avante window <leader>, : switch to the previous Avante chat history entry
-- Avante window <leader>z : toggle the Avante layout between split and full view
-- Avante prompt <C-s> : submit the current Avante prompt or edit request
 - insert <C-s> : accept the current Copilot inline suggestion
 
 Files and Search
@@ -64,19 +67,23 @@ Terminal Workflow
 - :b T:1 : jump directly to a named terminal buffer
 
 Persistent Processes
-- Persistent processes use tmux as a hidden backend so they survive terminal buffer closes and Neovim restarts.
-- Closing the attached terminal buffer detaches from the process; it does not kill the tmux session.
+- Persistent processes use shpool as a hidden backend so they survive terminal buffer closes and Neovim restarts.
+- Closing the attached terminal buffer detaches from the process; it does not kill the shpool session.
+- Scrollback is native: shpool passes raw output through, so the terminal buffer holds the history and all normal vim motions, search, visual mode, and yank work directly.
+- On reattach, shpool replays the last 10000 lines of session output into the buffer (session_restore_mode in ~/.config/shpool/config.toml).
+- persistent buffers : are labeled P:<name> in the tabline, and :b P:<name> jumps to one directly
 - <leader>pp : open the persistent terminal picker and attach to a selected process
 - <leader>pn : create a new persistent terminal process
 - <leader>pa : attach the last persistent terminal process
 - <leader>pk : kill the current persistent terminal process, or select one to kill
 - <leader>pK : kill all persistent terminal processes at once
+- persistent <Esc> : leave terminal input mode and navigate the scrollback like a normal buffer
 
 Run Current File
 - <leader>e uses the current buffer filetype to pick a runner.
 - Examples: python -> python3, lua -> lua, javascript -> node, typescript -> tsx, shell -> bash, go -> go run.
 - Non-runnable filetypes like json, yaml, html, and markdown show a warning instead of trying to execute.
-- Custom runner commands set through :TermimalConfig last only for the current Neovim session.
+- Custom runner commands set through :TerminalConfig last only for the current Neovim session.
 - <leader>e : open or reuse a terminal and run the current file with the resolved filetype runner
 
 Windows and Layout

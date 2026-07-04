@@ -200,7 +200,7 @@ function M.exec_current_file()
 end
 
 function M.register()
-    vim.api.nvim_create_user_command("TermimalConfig", M.configure_popup, {
+    vim.api.nvim_create_user_command("TerminalConfig", M.configure_popup, {
         desc = "Configure filetype-aware run command for <leader>e",
     })
 end

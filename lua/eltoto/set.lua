@@ -9,6 +9,7 @@ vim.opt.backspace = { "indent", "eol", "start" }
 vim.opt.errorbells = false
 vim.opt.insertmode = false
 vim.opt.hidden = true
+vim.opt.autoread = true
 vim.opt.cursorline = true
 vim.opt.splitbelow = true
 vim.opt.mouse = ""
@@ -16,7 +17,7 @@ vim.opt.selection = "exclusive"
 vim.opt.shortmess:append("c")
 vim.opt.wildignore:append({ "*/tmp/*", "*.so", "*.swp", "*.zip" })
 vim.opt.wildmenu = true
-vim.opt.wildmode = { "list", "full" }
+vim.opt.wildmode = "full"
 vim.opt.winminheight = 0
 vim.opt.winminwidth = 15
 vim.opt.encoding = "UTF-8"

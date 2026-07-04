@@ -1,6 +1,5 @@
 local M = {}
 local terminal = require("eltoto.terminal")
-local avante = require("eltoto.avante")
 local colors = require("eltoto.ui.colors")
 local augroup = nil
 
@@ -28,8 +27,34 @@ local function regular_buffers()
 	return buffers
 end
 
+local function is_ai_buffer(bufnr)
+	return vim.b[bufnr].eltoto_ai_kind ~= nil
+end
+
+-- AI harness buffers are terminals too, but they get their own tabline
+-- group: plain terminals and AI sessions never mix in one strip.
 local function terminal_buffers()
-	return terminal.buffer_info()
+	local buffers = {}
+
+	for _, bufinfo in ipairs(terminal.buffer_info()) do
+		if not is_ai_buffer(bufinfo.bufnr) then
+			buffers[#buffers + 1] = bufinfo
+		end
+	end
+
+	return buffers
+end
+
+local function ai_buffers()
+	local buffers = {}
+
+	for _, bufinfo in ipairs(terminal.buffer_info()) do
+		if is_ai_buffer(bufinfo.bufnr) then
+			buffers[#buffers + 1] = bufinfo
+		end
+	end
+
+	return buffers
 end
 
 local function render_segment(text, hl_group)
@@ -91,18 +116,6 @@ function M.setup_highlights()
 		bold = tabline.bold,
 		italic = tabline.italic,
 	})
-	set_hl("EltotoTablineAvanteActive", {
-		fg = active_fg,
-		bg = active_bg,
-		bold = true,
-		italic = tabline_sel.italic,
-	})
-	set_hl("EltotoTablineAvanteInactive", {
-		fg = inactive_fg,
-		bg = inactive_bg,
-		bold = tabline.bold,
-		italic = tabline.italic,
-	})
 	set_hl("EltotoTablineSeparator", {
 		fg = tabline_fill.fg or inactive_fg,
 		bg = separator_bg,
@@ -132,24 +145,16 @@ end
 
 function M.component()
 	local current = vim.api.nvim_get_current_buf()
-	if avante.is_sidebar_buffer(current) then
-		local items = avante.tabline_items()
-		if #items == 0 then
-			return ""
-		end
-
-		local segments = {}
-		for _, item in ipairs(items) do
-			local hl_group = item.active and "EltotoTablineAvanteActive"
-				or "EltotoTablineAvanteInactive"
-			segments[#segments + 1] = render_segment(item.label, hl_group)
-		end
-
-		return table.concat(segments, "%#EltotoTablineSeparator#|%*")
-	end
-
 	local current_is_term = vim.bo[current].buftype == "terminal"
-	local buffers = current_is_term and terminal_buffers() or regular_buffers()
+	local current_is_ai = current_is_term and is_ai_buffer(current)
+	local buffers
+	if current_is_ai then
+		buffers = ai_buffers()
+	elseif current_is_term then
+		buffers = terminal_buffers()
+	else
+		buffers = regular_buffers()
+	end
 
 	if #buffers == 0 then
 		return ""

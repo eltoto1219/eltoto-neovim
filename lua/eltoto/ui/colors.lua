@@ -17,9 +17,10 @@ local function channel(value, shift)
     return math.floor(value / 2 ^ shift) % 256
 end
 
-local function rgb_to_channels(color)
+function M.rgb_to_channels(color)
     return channel(color, 16), channel(color, 8), channel(color, 0)
 end
+local rgb_to_channels = M.rgb_to_channels
 
 local function channels_to_rgb(r, g, b)
     return r * 2 ^ 16 + g * 2 ^ 8 + b
@@ -41,6 +42,11 @@ function M.blend(from, to, amount)
     end
 
     return channels_to_rgb(mix(fr, tr), mix(fg, tg), mix(fb, tb))
+end
+
+function M.luminance(color)
+    local r, g, b = rgb_to_channels(color)
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
 end
 
 function M.lighten(color, amount, reference)

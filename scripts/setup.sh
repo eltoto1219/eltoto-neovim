@@ -75,7 +75,7 @@ ensure_openai_api_key_placeholder() {
 
     touch "$rc_file"
     {
-        printf '\n# OpenAI API key for Codex / Avante\n'
+        printf '\n# OpenAI API key for Codex\n'
         printf 'export OPENAI_API_KEY="%s"\n' "$openai_api_key"
     } >>"$rc_file"
 
@@ -152,27 +152,114 @@ ensure_vim_alias_in_shell_rcs() {
     done
 }
 
-ensure_tmux_repo_config() {
-    local repo_tmux_conf="$ROOT_DIR/tmux.conf"
-    local user_tmux_conf="$HOME/.tmux.conf"
+ensure_shpool() {
+    # shpool backs persistent terminal processes. Everything here is
+    # user-local: rustup and cargo install into $HOME, no root required.
+    if ! command_exists shpool && [[ ! -x "$HOME/.local/bin/shpool" ]]; then
+        if ! command_exists gcc && ! command_exists clang && ! command_exists cc; then
+            warn "no C compiler found; skipping shpool install (persistent terminal processes will be unavailable)"
+            return
+        fi
 
-    if [[ ! -f "$repo_tmux_conf" ]]; then
+        if ! command_exists cargo && [[ ! -x "$HOME/.cargo/bin/cargo" ]]; then
+            echo "Installing rustup (user-local, needed to build shpool)"
+            if command_exists curl; then
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
+            else
+                wget -qO- https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
+            fi
+        fi
+
+        echo "Installing shpool (compiles from source; this can take a few minutes)"
+        "$HOME/.cargo/bin/cargo" install shpool
+
+        ensure_local_bin_on_path
+        ln -sf "$HOME/.cargo/bin/shpool" "$HOME/.local/bin/shpool"
+    fi
+
+    local shpool_config="$HOME/.config/shpool/config.toml"
+    if [[ ! -f "$shpool_config" ]]; then
+        mkdir -p "$(dirname "$shpool_config")"
+        {
+            printf 'session_restore_mode = { lines = 10000 }\n'
+            printf 'output_spool_lines = 10000\n'
+            printf 'prompt_prefix = ""\n'
+        } >"$shpool_config"
+        echo "Wrote $shpool_config"
+    elif ! grep -q '^prompt_prefix' "$shpool_config"; then
+        printf 'prompt_prefix = ""\n' >>"$shpool_config"
+        echo "Disabled shpool prompt prefix in $shpool_config"
+    fi
+
+    ensure_login_shell_sources_bashrc
+}
+
+ensure_login_shell_sources_bashrc() {
+    # shpool spawns login shells, which read only the first of
+    # .bash_profile/.bash_login/.profile and skip .bashrc; without this hook
+    # sessions lose the colors, aliases, and prompt defined there.
+    local rc_file
+    for rc_file in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+        if [[ -f "$rc_file" ]]; then
+            break
+        fi
+    done
+
+    if grep -q '\.bashrc' "$rc_file" 2>/dev/null; then
         return
     fi
 
-    touch "$user_tmux_conf"
-    if ! grep -Fq "$repo_tmux_conf" "$user_tmux_conf"; then
-        {
-            printf '\n# eltoto.nvim tmux integration\n'
-            printf 'source-file "%s"\n' "$repo_tmux_conf"
-        } >>"$user_tmux_conf"
-        echo "Added repo-local tmux config include to $user_tmux_conf"
+    touch "$rc_file"
+    cat >>"$rc_file" <<'EOF'
+
+# Load interactive shell configuration (colors, aliases, prompt); login
+# shells (ssh, shpool) skip ~/.bashrc without this.
+if [ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ]; then
+    . "$HOME/.bashrc"
+fi
+EOF
+    echo "Made login shells source ~/.bashrc via $rc_file"
+}
+
+ensure_brew() {
+    # Homebrew, user-local (no root): cloned into ~/.linuxbrew. Non-default
+    # prefix means some packages build from source instead of using bottles.
+    if command_exists brew; then
+        echo "brew is already installed."
+        return
     fi
 
-    if command_exists tmux; then
-        tmux start-server >/dev/null 2>&1 || true
-        tmux source-file "$repo_tmux_conf" >/dev/null 2>&1 || true
+    if [[ "$OS_NAME" == "Darwin" ]]; then
+        warn "brew is missing; install it from https://brew.sh (macOS uses the official /opt/homebrew prefix)"
+        return
     fi
+
+    local brew_prefix="$HOME/.linuxbrew"
+    if [[ ! -x "$brew_prefix/bin/brew" ]]; then
+        if ! command_exists git; then
+            warn "git is required to install Homebrew; skipping"
+            return
+        fi
+
+        echo "Installing Homebrew (user-local, no root)"
+        git clone --quiet https://github.com/Homebrew/brew "$brew_prefix/Homebrew"
+        mkdir -p "$brew_prefix/bin"
+        ln -sf ../Homebrew/bin/brew "$brew_prefix/bin/brew"
+    fi
+
+    local rc_file
+    rc_file="$(shell_rc_file)"
+    touch "$rc_file"
+    if ! grep -Eq '^[^#]*brew shellenv' "$rc_file"; then
+        {
+            printf '\n# User-local Homebrew\n'
+            printf 'eval "$($HOME/.linuxbrew/bin/brew shellenv)"\n'
+        } >>"$rc_file"
+        echo "Added brew shellenv to $rc_file"
+    fi
+
+    eval "$("$brew_prefix/bin/brew" shellenv)"
+    refresh_shell
 }
 
 maybe_run_copilot_setup() {
@@ -279,7 +366,6 @@ packages_for_tool() {
         brew:unzip) echo "unzip" ;;
         brew:tar) echo "gnu-tar" ;;
         brew:rg) echo "ripgrep" ;;
-        brew:tmux) echo "tmux" ;;
         brew:node) echo "node" ;;
         brew:gcc) echo "gcc" ;;
         brew:compiler) echo "gcc" ;;
@@ -294,7 +380,6 @@ packages_for_tool() {
         apt-get:unzip) echo "unzip" ;;
         apt-get:tar) echo "tar" ;;
         apt-get:rg) echo "ripgrep" ;;
-        apt-get:tmux) echo "tmux" ;;
         apt-get:node) echo "nodejs npm" ;;
         apt-get:gcc) echo "build-essential" ;;
         apt-get:compiler) echo "build-essential" ;;
@@ -309,7 +394,6 @@ packages_for_tool() {
         dnf:unzip|yum:unzip) echo "unzip" ;;
         dnf:tar|yum:tar) echo "tar" ;;
         dnf:rg|yum:rg) echo "ripgrep" ;;
-        dnf:tmux|yum:tmux) echo "tmux" ;;
         dnf:node|yum:node) echo "nodejs npm" ;;
         dnf:gcc|yum:gcc) echo "gcc make" ;;
         dnf:compiler|yum:compiler) echo "gcc make" ;;
@@ -324,7 +408,6 @@ packages_for_tool() {
         pacman:unzip) echo "unzip" ;;
         pacman:tar) echo "tar" ;;
         pacman:rg) echo "ripgrep" ;;
-        pacman:tmux) echo "tmux" ;;
         pacman:node) echo "nodejs npm" ;;
         pacman:gcc) echo "base-devel" ;;
         pacman:compiler) echo "base-devel" ;;
@@ -339,7 +422,6 @@ packages_for_tool() {
         zypper:unzip) echo "unzip" ;;
         zypper:tar) echo "tar" ;;
         zypper:rg) echo "ripgrep" ;;
-        zypper:tmux) echo "tmux" ;;
         zypper:node) echo "nodejs npm" ;;
         zypper:gcc) echo "gcc make" ;;
         zypper:compiler) echo "gcc make" ;;
@@ -354,7 +436,6 @@ packages_for_tool() {
         apk:unzip) echo "unzip" ;;
         apk:tar) echo "tar" ;;
         apk:rg) echo "ripgrep" ;;
-        apk:tmux) echo "tmux" ;;
         apk:node) echo "nodejs npm" ;;
         apk:gcc) echo "build-base" ;;
         apk:compiler) echo "build-base" ;;
@@ -377,7 +458,6 @@ install_hint() {
         Darwin:unzip) echo "brew install unzip" ;;
         Darwin:tar) echo "brew install gnu-tar" ;;
         Darwin:rg) echo "brew install ripgrep" ;;
-        Darwin:tmux) echo "brew install tmux" ;;
         Darwin:node) echo "brew install node" ;;
         Darwin:gcc) echo "xcode-select --install" ;;
         Darwin:clang) echo "xcode-select --install" ;;
@@ -391,7 +471,6 @@ install_hint() {
         Linux:unzip) echo "Install unzip with your package manager (for example: sudo apt install unzip)" ;;
         Linux:tar) echo "Install tar with your package manager (for example: sudo apt install tar)" ;;
         Linux:rg) echo "Install ripgrep with your package manager (for example: sudo apt install ripgrep)" ;;
-        Linux:tmux) echo "Install tmux with your package manager (for example: sudo apt install tmux)" ;;
         Linux:node) echo "Install Node.js with your package manager (for example: sudo apt install nodejs npm)" ;;
         Linux:gcc) echo "Install build tools (for example: sudo apt install build-essential)" ;;
         Linux:clang) echo "Install clang with your package manager (for example: sudo apt install clang)" ;;
@@ -526,10 +605,6 @@ preflight() {
         missing_optional+=("rg")
     fi
 
-    if ! command_exists tmux; then
-        missing_optional+=("tmux")
-    fi
-
     if ! command_exists node; then
         missing_optional+=("node")
     fi
@@ -636,10 +711,17 @@ source "$VENV_DIR/bin/activate"
 
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r "$REQS_FILE"
+
+# Pre-download the dictation model so the first <leader>v is not a multi-
+# minute wait; non-fatal on machines without network or disk to spare.
+echo "Pre-downloading whisper 'base' model for dictation"
+python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')" \
+    || warn "could not pre-download the whisper model; it will download on first dictation use"
 ensure_openai_api_key_placeholder
 ensure_vi_mode_in_shell_rcs
 ensure_vim_alias_in_shell_rcs
-ensure_tmux_repo_config
+ensure_shpool
+ensure_brew
 
 if [[ -x "$FONT_SCRIPT" ]]; then
     echo "Installing Nerd Font"

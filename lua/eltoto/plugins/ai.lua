@@ -13,27 +13,11 @@ return {
         end,
     },
     {
-        "yetone/avante.nvim",
-        build = "make",
-        event = "VeryLazy",
-        version = false,
-        dependencies = {
-            "nvim-treesitter/nvim-treesitter",
-            "stevearc/dressing.nvim",
-            "nvim-lua/plenary.nvim",
-            "MunifTanjim/nui.nvim",
-            "nvim-tree/nvim-web-devicons",
-            {
-                "MeanderingProgrammer/render-markdown.nvim",
-                ft = { "markdown", "Avante" },
-                opts = {
-                    file_types = { "markdown", "Avante" },
-                },
-            },
+        "MeanderingProgrammer/render-markdown.nvim",
+        dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },
+        ft = { "markdown" },
+        opts = {
+            file_types = { "markdown" },
         },
-        config = function()
-            local ai = require("eltoto.ai")
-            require("eltoto.avante").setup(ai.codex_model)
-        end,
     },
 }
