@@ -16,6 +16,25 @@ local disposable_sequence = 0
 -- display_name -> { branch, dirty } updated async on BufEnter
 local git_cache = {}
 
+local function git_status(path, callback)
+    vim.system(
+        { "git", "-C", path, "status", "--short", "--untracked-files=all" },
+        { text = true },
+        function(result)
+            vim.schedule(function()
+                if result.code == 0 then
+                    callback(result.stdout or "")
+                    return
+                end
+
+                local detail = vim.trim(result.stderr or "")
+                if detail == "" then detail = "exit code " .. result.code end
+                callback(nil, detail)
+            end)
+        end
+    )
+end
+
 local function is_th_session(name)
     return vim.startswith(name, TH_PREFIX)
 end
@@ -46,10 +65,15 @@ local function refresh_git_cache(display_name)
     if not path then return end
     vim.system({ "git", "-C", path, "branch", "--show-current" }, { text = true }, function(br)
         local branch = vim.trim(br.stdout or "")
-        vim.system({ "git", "-C", path, "status", "--short" }, { text = true }, function(st)
+        git_status(path, function(status)
+            if workspace_paths[display_name] ~= path then return end
+            if not status then
+                git_cache[display_name] = nil
+                return
+            end
             git_cache[display_name] = {
                 branch = branch ~= "" and branch or "?",
-                dirty = vim.trim(st.stdout or "") ~= "",
+                dirty = vim.trim(status) ~= "",
             }
         end)
     end)
@@ -270,16 +294,14 @@ function M.return_workspace()
         end
 
         local task = display_name:sub(#TH_PREFIX + 1)
-        vim.system({ "git", "-C", path, "status", "--short", "--untracked-files=all" }, { text = true }, function(st)
-            vim.schedule(function()
-                if st.code ~= 0 then
-                    local detail = vim.trim(st.stderr or "")
-                    if detail == "" then detail = "exit code " .. st.code end
+        local function inspect_and_confirm()
+            git_status(path, function(status, detail)
+                if not status then
                     vim.notify("treehouse: failed to inspect workspace: " .. detail, vim.log.levels.ERROR)
                     return
                 end
 
-                local status_lines = vim.split(vim.trim(st.stdout or ""), "\n", { trimempty = true })
+                local status_lines = vim.split(vim.trim(status), "\n", { trimempty = true })
                 local lines = { "Return workspace: " .. task, "", "  path: " .. path, "" }
                 if #status_lines > 0 then
                     lines[#lines + 1] = "  UNCOMMITTED CHANGES:"
@@ -321,22 +343,40 @@ function M.return_workspace()
                 local opts = { buffer = buf, silent = true, nowait = true }
                 vim.keymap.set("n", "q", close, opts)
                 vim.keymap.set("n", "<Esc>", close, opts)
+                local checking = false
                 vim.keymap.set("n", "r", function()
-                    close()
-                    vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
-                        vim.schedule(function()
-                            if result.code ~= 0 then
-                                vim.notify("treehouse return failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
-                                return
-                            end
-                            workspace_paths[display_name] = nil
-                            git_cache[display_name] = nil
-                            vim.notify("Returned workspace: " .. task)
+                    if checking then return end
+                    checking = true
+                    git_status(path, function(current_status, current_detail)
+                        if not current_status then
+                            checking = false
+                            vim.notify("treehouse: failed to inspect workspace: " .. current_detail, vim.log.levels.ERROR)
+                            return
+                        end
+                        close()
+                        if current_status ~= status then
+                            vim.notify("treehouse: workspace changed; review the updated status", vim.log.levels.WARN)
+                            inspect_and_confirm()
+                            return
+                        end
+
+                        vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
+                            vim.schedule(function()
+                                if result.code ~= 0 then
+                                    vim.notify("treehouse return failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
+                                    return
+                                end
+                                workspace_paths[display_name] = nil
+                                git_cache[display_name] = nil
+                                vim.notify("Returned workspace: " .. task)
+                            end)
                         end)
                     end)
                 end, opts)
             end)
-        end)
+        end
+
+        inspect_and_confirm()
     end
 
     -- if current buffer is a treehouse session, use it directly
