@@ -50,8 +50,13 @@ end
 
 -- "attach -f" both creates missing sessions and reclaims stale attachments
 -- left behind when a previous nvim exited without detaching.
-function M.attach_command(display_name)
-    return M.command({ "attach", "-f", M.session_name(display_name) })
+function M.attach_command(display_name, start_dir)
+    local args = { "attach", "-f" }
+    if start_dir then
+        vim.list_extend(args, { "--dir", start_dir })
+    end
+    args[#args + 1] = M.session_name(display_name)
+    return M.command(args)
 end
 
 function M.managed_sessions()

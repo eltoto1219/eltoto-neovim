@@ -64,6 +64,15 @@ local function backend_available()
     return false
 end
 
+local function treehouse_available()
+    if vim.fn.executable("treehouse") == 1 then
+        return true
+    end
+
+    vim.notify("treehouse is required (install it from github.com/kunchenguid/treehouse)", vim.log.levels.WARN)
+    return false
+end
+
 local function session_name_in_use(display_name)
     return reserved_sessions[display_name]
         or process_backend.session_exists(display_name)
@@ -104,7 +113,7 @@ local function open_session(display_name, path, create)
     end
 
     local bufnr = terminal.open_command(
-        process_backend.attach_command(display_name),
+        process_backend.attach_command(display_name, exists and nil or path),
         "P:" .. display_name,
         exists and nil or { cwd = path }
     )
@@ -136,7 +145,7 @@ end
 
 -- <leader>fa — quick disposable lease, auto-named
 function M.acquire_disposable()
-    if not backend_available() then return end
+    if not treehouse_available() or not backend_available() then return end
 
     local display_name = next_disposable_name()
     if not reserve_session(display_name) then return end
@@ -160,7 +169,7 @@ end
 
 -- <leader>fl — named leased workspace
 function M.acquire_leased()
-    if not backend_available() then return end
+    if not treehouse_available() or not backend_available() then return end
 
     ui_input.centered({ title = " Treehouse Task ", prompt = "Task name: " }, function(input)
         if not input then return end
@@ -191,6 +200,8 @@ end
 
 -- <leader>fs — treehouse status float
 function M.status()
+    if not treehouse_available() then return end
+
     vim.system({ "treehouse", "status" }, { text = true }, function(result)
         vim.schedule(function()
             local raw = (result.stdout or "") .. (result.stderr or "")
@@ -249,6 +260,8 @@ end
 
 -- <leader>fr — return leased workspace; shows git status, requires confirm
 function M.return_workspace()
+    if not treehouse_available() then return end
+
     local function do_return(display_name)
         local path = workspace_paths[display_name]
         if not path then
@@ -335,6 +348,18 @@ function M.return_workspace()
 
     -- otherwise pick
     local sessions = th_sessions()
+    local included = {}
+    for _, item in ipairs(sessions) do
+        included[item.name] = true
+    end
+    for display_name in pairs(workspace_paths) do
+        if is_th_session(display_name) and not included[display_name] then
+            sessions[#sessions + 1] = { name = display_name }
+        end
+    end
+    table.sort(sessions, function(a, b)
+        return a.name < b.name
+    end)
     if #sessions == 0 then
         vim.notify("No active treehouse workspaces", vim.log.levels.INFO)
         return
