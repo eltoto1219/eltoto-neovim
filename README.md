@@ -9,7 +9,7 @@ Portable, terminal-centered Neovim workflow with a repo-local Python toolchain, 
 
 - ⚙️ Repo-local Python tooling for a stable Neovim environment
 - 🖥️ Separate workflows for file buffers, terminal buffers, and persistent shpool-backed processes
-- 🤖 Copilot for inline completion and Avante for explicit chat/edit workflows
+- 🤖 Copilot for inline completion and Claude/Codex harness sessions for explicit AI workflows
 - 📚 Generated shortcut docs in the README, `SHORTCUTS.txt`, and `:Shortcuts`
 - 🩺 Setup, health, and check scripts so the config can verify itself
 
@@ -47,7 +47,7 @@ Then:
 1. Open Neovim.
 2. Run `:AIStatus` to confirm your AI environment is visible.
 3. Open the shortcut popup with `<leader>?`.
-4. Start working with `<leader>pf`, `<leader>t`, `<leader>e`, and `<leader>aa`.
+4. Start working with `<leader>pf`, `<leader>t`, `<leader>e`, and `<leader>a`.
 
 ## ✨ What This Project Does
 
@@ -56,7 +56,7 @@ This project turns Neovim into a portable personal workbench with:
 - a repo-local Python environment for Neovim itself, so editor tooling stays separate from project virtualenvs
 - custom regular-buffer and terminal-buffer workflows, including named terminal buffers like `T:1`, `T:2`, and direct `:b T:1` navigation
 - persistent terminal processes backed by `shpool`, so long-running jobs survive buffer closes and Neovim restarts
-- AI assistance through Copilot inline completions and Avante chat/edit flows with OpenAI
+- AI assistance through Copilot inline completions and Claude/Codex harness sessions in terminal buffers
 - fast project search with Telescope
 - semantic symbol rename through LSP for supported languages
 - filetype-aware run-current-file behavior via `<leader>e`, with session-only overrides through `:TerminalConfig`
@@ -73,9 +73,9 @@ Most configs stop at plugins and keymaps. This one goes further:
 - 🧪 It isolates Neovim’s Python environment from project virtualenvs, which keeps editor tooling stable.
 - 🗂️ It has separate, deliberate workflows for files, terminals, and persistent shpool-backed processes.
 - ▶️ It can run the current file intelligently by filetype instead of making you context-switch into another shell.
-- 🤖 It treats AI as a tool, not as the center of the editor. Copilot stays lightweight, while Avante now has a real workflow with history switching, tabline visibility, chat lifecycle actions, polished prompts, and terminal round-trip behavior.
+- 🤖 It treats AI as a tool, not as the center of the editor. Copilot stays lightweight, while Claude and Codex run in plain terminal buffers with native scrollback, a dedicated tabline group, session caching, and voice dictation injection.
 - 🩺 It is maintainable. `:EltotoHealth` and `./scripts/check.sh` give you a direct way to verify the setup instead of guessing.
-- 🎛️ It has a real UI layer. The tabline, terminal names, and Avante session views reflect how the workflow actually works, not just what Neovim happens to expose by default.
+- 🎛️ It has a real UI layer. The tabline, terminal names, and AI session views reflect how the workflow actually works, not just what Neovim happens to expose by default.
 
 The uncommon part is the combination:
 
@@ -100,7 +100,7 @@ That is what makes it feel like a workbench instead of a pile of plugins.
 - Open, reuse, and cycle through named terminal buffers
 - Create, attach, list, and kill persistent terminal processes without leaving Neovim
 - Run current files through filetype-aware runners inside the Neovim terminal workflow
-- Use Avante for in-editor AI chat and edit workflows
+- Use Claude or Codex harness sessions for in-editor AI chat workflows
 - Use GitHub Copilot for inline completions
 - Use LSP for definitions, hover, references, rename, diagnostics, and completion
 - Use Telescope for file and buffer discovery
@@ -128,7 +128,7 @@ A common workflow in this config looks like this:
 3. Use `<leader>t` or `<leader>T` for short-lived terminal work inside Neovim.
 4. Use `<leader>pn` to create a persistent shpool-backed process for anything long-running, then `<leader>pp` or `<leader>pa` to reattach later.
 5. Run the current file with `<leader>e`, using the filetype-aware runner instead of opening another shell manually.
-6. Use `<leader>aa` or `<leader>ac` when you want Codex help, while keeping normal editing and terminal work in the foreground.
+6. Use `<leader>a` to toggle the last AI buffer or `<leader>A` to open a new Claude or Codex session.
 7. Use `:AIStatus`, `:EltotoHealth`, and `./scripts/check.sh` when something looks wrong instead of guessing.
 
 The point is that editing, running code, long-lived processes, and AI assistance all live in one coherent workflow.
@@ -196,24 +196,21 @@ This config uses two separate auth paths:
 
 Recommended model choices:
 
-- Avante / OpenAI chat: `gpt-5.3-codex`
 - Copilot inline completions: keep the default Copilot inline model, because `copilot.vim` does not expose a repo-local per-model inline selector here
 
 This repo does not store API keys. Keep `OPENAI_API_KEY` in your shell environment so both terminal Codex and Neovim can use the same credential.
 
 ## 🧠 AI Workflow
 
-This setup intentionally uses three different AI modes for three different jobs:
+This setup intentionally uses two different AI modes for two different jobs:
 
 - Use Copilot for inline completion while you are already typing and do not want to stop your flow.
-- Use Avante when you want an explicit conversation, code-aware editing, or a side chat that stays inside Neovim.
-- Use terminal Codex when you want the full terminal-first Codex workflow outside the editor UI.
+- Use Claude or Codex harness sessions when you want an explicit conversation or agentic help in a terminal buffer inside Neovim.
 
 The practical split is:
 
 - Copilot: fast, low-friction, inline suggestions
-- Avante: deliberate in-editor help, edits, and chat
-- Codex in terminal: best standalone Codex TUI experience when you want to work directly in the terminal
+- Claude / Codex sessions: deliberate in-editor help in a native terminal buffer with full scrollback, visual mode, and voice dictation
 
 That separation keeps AI useful without letting it take over the whole editor.
 
@@ -253,8 +250,7 @@ This reports:
 
 - whether `OPENAI_API_KEY` is visible to Neovim
 - whether `codex` is executable
-- the configured Avante model
-- whether Avante loads
+- whether `claude` is executable
 - the current Copilot status reported by `copilot.vim`
 
 ## 🧯 Troubleshooting
