@@ -36,14 +36,17 @@ M.commands = {
         -- claude's fullscreen TUI lives on the alternate screen, which has no
         -- scrollback; NO_FLICKER=0 forces inline rendering so the transcript
         -- accumulates in the terminal buffer.
+        local argv = { "env", "CLAUDE_CODE_NO_FLICKER=0", "claude" }
         if resume then
-            return command({ "env", "CLAUDE_CODE_NO_FLICKER=0", "claude", "--resume", entry.id }, claude_args)
+            vim.list_extend(argv, { "--resume", entry.id })
+        elseif entry and entry.id then
+            vim.list_extend(argv, { "--session-id", entry.id })
         end
-        return command({ "env", "CLAUDE_CODE_NO_FLICKER=0", "claude", "--session-id", entry.id }, claude_args)
+        return command(argv, claude_args)
     end,
     codex = function(entry, resume)
         if resume then
-            if entry.id then
+            if entry and entry.id then
                 return command({ "codex", "resume", entry.id }, codex_args)
             end
             return command({ "codex", "resume", "--last" }, codex_args)
@@ -51,6 +54,16 @@ M.commands = {
         return command({ "codex" }, codex_args)
     end,
 }
+
+function M.shell_command(kind)
+    local builder = M.commands[kind]
+    if not builder then
+        return nil
+    end
+
+    local escaped = vim.tbl_map(vim.fn.shellescape, builder(nil, false))
+    return table.concat(escaped, " ")
+end
 
 local function registry_path()
     local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "eltoto")

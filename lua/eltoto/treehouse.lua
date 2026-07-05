@@ -1,6 +1,7 @@
 local M = {}
 
 local process_backend = require("eltoto.process_backend")
+local ai_sessions = require("eltoto.ai_sessions")
 local terminal = require("eltoto.terminal")
 local ui_input = require("eltoto.ui.input")
 local ui_picker = require("eltoto.ui.picker")
@@ -364,22 +365,37 @@ local function open_session(display_name, path, create)
     return bufnr
 end
 
--- Offer to start an agent in a freshly acquired workspace. The command goes
--- to the shell as a plain word so the user's aliases expand it (always-on
--- flags). Esc/q keeps the plain shell. Never offered on reattach: the shpool
--- session keeps whatever was running.
+-- Offer to start an agent in a freshly acquired workspace. Esc/q keeps the
+-- plain shell. Never offered on reattach: the shpool session keeps whatever
+-- was running.
 local function offer_agent(bufnr)
     local kinds = { "claude", "codex" }
+
+    local function focus_terminal()
+        if not terminal.is_terminal(bufnr) then
+            return
+        end
+
+        local winid = vim.fn.bufwinid(bufnr)
+        if winid ~= -1 then
+            pcall(vim.api.nvim_set_current_win, winid)
+        else
+            pcall(vim.api.nvim_set_current_buf, bufnr)
+        end
+
+        if vim.api.nvim_get_current_buf() == bufnr then
+            vim.cmd.startinsert()
+        end
+    end
+
     ui_picker.select("Workspace agent (Esc: plain shell):", kinds, function(index)
         if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].channel == 0 then
             return
         end
 
-        vim.api.nvim_chan_send(vim.bo[bufnr].channel, kinds[index] .. "\r")
-        if vim.api.nvim_get_current_buf() == bufnr then
-            vim.cmd.startinsert()
-        end
-    end)
+        vim.api.nvim_chan_send(vim.bo[bufnr].channel, ai_sessions.shell_command(kinds[index]) .. "\r")
+        focus_terminal()
+    end, focus_terminal)
 end
 
 local function finish_acquisition(display_name, path)

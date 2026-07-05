@@ -2,7 +2,7 @@ local M = {}
 
 -- Centered floating list picker: j/k/<Down>/<Up> move (wrapping), <CR>
 -- selects, q/<Esc> cancel. Calls on_choice with the selected index only.
-function M.select(prompt, labels, on_choice)
+function M.select(prompt, labels, on_choice, on_cancel)
     if #labels == 0 then
         return
     end
@@ -44,6 +44,13 @@ function M.select(prompt, labels, on_choice)
         end
     end
 
+    local function cancel_picker()
+        close_picker()
+        if on_cancel then
+            on_cancel()
+        end
+    end
+
     local function move(delta)
         return function()
             local line = vim.api.nvim_win_get_cursor(winid)[1]
@@ -63,8 +70,8 @@ function M.select(prompt, labels, on_choice)
     vim.keymap.set("n", "<Down>", move(1), opts)
     vim.keymap.set("n", "<Up>", move(-1), opts)
     vim.keymap.set("n", "<CR>", choose_current, opts)
-    vim.keymap.set("n", "q", close_picker, opts)
-    vim.keymap.set("n", "<Esc>", close_picker, opts)
+    vim.keymap.set("n", "q", cancel_picker, opts)
+    vim.keymap.set("n", "<Esc>", cancel_picker, opts)
 
     vim.api.nvim_win_set_cursor(winid, { 1, 0 })
 end
