@@ -23,7 +23,7 @@ AI Harness Sessions
 - <leader>A : pick Claude or Codex and open a new AI session buffer
 - <leader>d : open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
 - AI buffers : get their own tabline group, separate from plain terminal buffers
-- AI [a / ]a : jump to the previous / next prompt line in the transcript (❯, ›, or >)
+- [a / ]a : in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one returns to the live input
 - :Claude : open a new Claude Code session in a terminal buffer
 - :Codex : open a new Codex session in a terminal buffer
 - :AIRestore : restore the cached AI harness sessions born in the current directory
@@ -84,8 +84,8 @@ Treehouse Workspaces
 - Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.
 - Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.
 - The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.
-- <leader>fa : acquire a disposable treehouse workspace and open a persistent session inside it
-- <leader>fl : acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it
+- <leader>fa : acquire a disposable treehouse workspace and open a persistent session inside it; a popup offers to start claude or codex there (Esc keeps a plain shell)
+- <leader>fl : acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it, with the same agent popup
 - <leader>fs : show treehouse status in a float (all pool workspaces, lease holders, paths)
 - <leader>fw : pick from active treehouse sessions; shows branch and dirty indicator
 - <leader>fr : return the current (or selected) leased workspace; shows git status and requires confirmation
@@ -179,3 +179,4 @@ LSP and Diagnostics
 - <leader>r : show diagnostic float
 - <leader>q : send diagnostics to the location list
 - insert <C-h> : signature help
+

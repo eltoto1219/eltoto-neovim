@@ -300,32 +300,6 @@ local function watch_codex_id(bufnr, key, spawn_time)
     vim.defer_fn(poll, 1000)
 end
 
--- Lines where the user typed a prompt: ❯ (claude), › (codex), or a plain >.
--- No semantic markers exist in these transcripts (the TUIs don't emit OSC 133
--- prompt marks), so a pattern over the rendered text is the mechanism.
-M.prompt_pattern = [[\v^\s*[❯›>]\s]]
-
-local function prompt_jump(direction)
-    return function()
-        if vim.fn.search(M.prompt_pattern, direction < 0 and "bW" or "W") ~= 0 then
-            vim.cmd("normal! zz")
-        end
-    end
-end
-
-local function set_prompt_jump_keymaps(bufnr)
-    vim.keymap.set("n", "[a", prompt_jump(-1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to previous prompt",
-    })
-    vim.keymap.set("n", "]a", prompt_jump(1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to next prompt",
-    })
-end
-
 -- claude has no setting to skip its "do you trust this workspace?" dialog
 -- (verified against docs); pre-marking the cwd as trusted in its state file
 -- before launch is the only way. Small race if another claude instance
@@ -363,7 +337,7 @@ local function spawn(entry, resume)
         return nil
     end
 
-    set_prompt_jump_keymaps(bufnr)
+    terminal.set_prompt_jump_keymaps(bufnr)
 
     entry.last_used = os.time()
     entries[entry.key] = entry

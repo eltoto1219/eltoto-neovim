@@ -364,6 +364,38 @@ function M.rename_current()
     end)
 end
 
+-- Lines where the user typed a prompt: ❯ (claude), › (codex), or a plain >.
+-- No semantic markers exist in these transcripts (the TUIs don't emit OSC 133
+-- prompt marks), so a pattern over the rendered text is the mechanism.
+M.prompt_pattern = [[\v^\s*[❯›>]\s]]
+
+local function prompt_jump(direction)
+    return function()
+        if vim.fn.search(M.prompt_pattern, direction < 0 and "bW" or "W") ~= 0 then
+            vim.cmd("normal! zz")
+        elseif direction > 0 then
+            -- Past the last transcript prompt: the live input box at the
+            -- bottom doesn't match the pattern (it's drawn inside a border),
+            -- so snap to it and resume typing.
+            vim.cmd("normal! G")
+            vim.cmd.startinsert()
+        end
+    end
+end
+
+function M.set_prompt_jump_keymaps(bufnr)
+    vim.keymap.set("n", "[a", prompt_jump(-1), {
+        buffer = bufnr,
+        silent = true,
+        desc = "Jump to previous prompt",
+    })
+    vim.keymap.set("n", "]a", prompt_jump(1), {
+        buffer = bufnr,
+        silent = true,
+        desc = "Jump to next prompt, or back to the live input",
+    })
+end
+
 function M.configure_persistent_buffer(bufnr)
     if not M.is_terminal(bufnr) then
         return
@@ -373,6 +405,8 @@ function M.configure_persistent_buffer(bufnr)
     -- history: native motions, search, visual mode, and yank work directly.
     -- 10000 matches the shpool restore window (session_restore_mode lines).
     vim.bo[bufnr].scrollback = 10000
+
+    M.set_prompt_jump_keymaps(bufnr)
 
     vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", {
         buffer = bufnr,

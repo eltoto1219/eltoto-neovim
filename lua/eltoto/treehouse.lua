@@ -361,13 +361,34 @@ local function open_session(display_name, path, create)
     terminal.configure_persistent_buffer(bufnr)
 
     refresh_git_cache(display_name)
-    return true
+    return bufnr
+end
+
+-- Offer to start an agent in a freshly acquired workspace. The command goes
+-- to the shell as a plain word so the user's aliases expand it (always-on
+-- flags). Esc/q keeps the plain shell. Never offered on reattach: the shpool
+-- session keeps whatever was running.
+local function offer_agent(bufnr)
+    local kinds = { "claude", "codex" }
+    ui_picker.select("Workspace agent (Esc: plain shell):", kinds, function(index)
+        if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].channel == 0 then
+            return
+        end
+
+        vim.api.nvim_chan_send(vim.bo[bufnr].channel, kinds[index] .. "\r")
+        if vim.api.nvim_get_current_buf() == bufnr then
+            vim.cmd.startinsert()
+        end
+    end)
 end
 
 local function finish_acquisition(display_name, path)
     local opened = open_session(display_name, path, true)
     reserved_sessions[display_name] = nil
-    if opened then return end
+    if opened then
+        offer_agent(opened)
+        return
+    end
 
     vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
         if result.code == 0 then return end
