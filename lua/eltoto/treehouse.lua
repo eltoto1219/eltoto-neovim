@@ -368,7 +368,7 @@ end
 -- Offer to start an agent in a freshly acquired workspace. Esc/q keeps the
 -- plain shell. Never offered on reattach: the shpool session keeps whatever
 -- was running.
-local function offer_agent(bufnr)
+local function offer_agent(bufnr, path)
     local kinds = { "claude", "codex" }
 
     local function focus_terminal()
@@ -393,7 +393,9 @@ local function offer_agent(bufnr)
             return
         end
 
-        vim.api.nvim_chan_send(vim.bo[bufnr].channel, ai_sessions.shell_command(kinds[index]) .. "\r")
+        local kind = kinds[index]
+        ai_sessions.prepare_workspace(kind, path)
+        vim.api.nvim_chan_send(vim.bo[bufnr].channel, ai_sessions.shell_command(kind) .. "\r")
         focus_terminal()
     end, focus_terminal)
 end
@@ -402,7 +404,7 @@ local function finish_acquisition(display_name, path)
     local opened = open_session(display_name, path, true)
     reserved_sessions[display_name] = nil
     if opened then
-        offer_agent(opened)
+        offer_agent(opened, path)
         return
     end
 

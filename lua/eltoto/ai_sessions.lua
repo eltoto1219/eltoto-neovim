@@ -339,10 +339,14 @@ local function trust_claude_workspace(cwd)
     vim.fn.writefile({ vim.json.encode(state) }, path)
 end
 
-local function spawn(entry, resume)
-    if entry.kind == "claude" then
-        trust_claude_workspace(entry.cwd)
+function M.prepare_workspace(kind, cwd)
+    if kind == "claude" then
+        trust_claude_workspace(cwd)
     end
+end
+
+local function spawn(entry, resume)
+    M.prepare_workspace(entry.kind, entry.cwd)
 
     local command = M.commands[entry.kind](entry, resume)
     local bufnr = terminal.open_command(command, entry_label(entry), { cwd = entry.cwd, ai_kind = entry.kind })
