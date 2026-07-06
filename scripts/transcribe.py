@@ -20,16 +20,23 @@ def cuda_available() -> bool:
         return False
 
 
+def load_cpu_model(name):
+    from faster_whisper import WhisperModel
+
+    return WhisperModel(name or "base", device="cpu", compute_type="int8")
+
+
 def load_model(name):
     from faster_whisper import WhisperModel
 
     if cuda_available():
         try:
-            return WhisperModel(name or "medium", device="cuda", compute_type="float16")
+            model = WhisperModel(name or "medium", device="cuda", compute_type="float16")
+            return model, True
         except Exception:
             pass
 
-    return WhisperModel(name or "base", device="cpu", compute_type="int8")
+    return load_cpu_model(name), False
 
 
 def transcribe(model, wav) -> str:
@@ -37,24 +44,44 @@ def transcribe(model, wav) -> str:
     return " ".join(segment.text.strip() for segment in segments).strip()
 
 
+def transcribe_with_fallback(model, using_cuda, model_name, wav):
+    try:
+        return transcribe(model, wav), model, using_cuda
+    except Exception as gpu_error:
+        if not using_cuda:
+            raise
+
+        cpu_model = load_cpu_model(model_name)
+        try:
+            text = transcribe(cpu_model, wav)
+        except Exception as cpu_error:
+            raise gpu_error from cpu_error
+        return text, cpu_model, False
+
+
 def main() -> None:
     model_name = sys.argv[2] if len(sys.argv) > 2 else None
+    model, using_cuda = load_model(model_name)
 
     if sys.argv[1] == "--serve":
-        model = load_model(model_name)
         for line in sys.stdin:
             path = line.strip()
             if not path:
                 continue
             try:
-                text = transcribe(model, path)
+                text, model, using_cuda = transcribe_with_fallback(
+                    model, using_cuda, model_name, path
+                )
                 response = {"text": text}
             except Exception as exc:
                 response = {"error": str(exc)}
             print(json.dumps(response), flush=True)
         return
 
-    print(transcribe(load_model(model_name), sys.argv[1]))
+    text, _model, _using_cuda = transcribe_with_fallback(
+        model, using_cuda, model_name, sys.argv[1]
+    )
+    print(text)
 
 
 if __name__ == "__main__":
