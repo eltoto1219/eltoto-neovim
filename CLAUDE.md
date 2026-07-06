@@ -35,4 +35,4 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 
 - 2026-07-03: `:AIRestore` must be scoped to the current working directory, not all cached sessions.
 - 2026-07-03: `<leader>aa`-style pickers should list cached (restorable) sessions too, not only open buffers.
-- 2026-07-04: treehouse acquisition offers an agent via popup (Esc = plain shell), never a hardcoded autostart; agents in workspaces stay out of the ai_sessions registry (shpool already provides their persistence).
+- 2026-07-04: treehouse acquisition offers an agent via popup (q/Esc = plain shell), never a hardcoded autostart; agents in workspaces stay out of the ai_sessions registry (shpool already provides their persistence).

@@ -120,9 +120,10 @@ M.sections = {
             "Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.",
             "Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.",
             "The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.",
+            "After acquisition, pick claude or codex to run it inside the shpool session with the standard unsafe flags; q/Esc or an unavailable agent keeps a plain shell. Workspace agents are not added to the AI session registry.",
         },
         entries = {
-            { lhs = "<leader>fa", desc = "acquire a disposable treehouse workspace and open a persistent session inside it; a popup offers to start claude or codex there (Esc keeps a plain shell)" },
+            { lhs = "<leader>fa", desc = "acquire a disposable treehouse workspace and open a persistent session inside it; a popup offers to start claude or codex there" },
             { lhs = "<leader>fl", desc = "acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it, with the same agent popup" },
             { lhs = "<leader>fs", desc = "show treehouse status in a float (all pool workspaces, lease holders, paths)" },
             { lhs = "<leader>fw", desc = "pick from active treehouse sessions; shows branch and dirty indicator" },

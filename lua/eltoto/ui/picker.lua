@@ -1,7 +1,8 @@
 local M = {}
 
--- Centered floating list picker: j/k/<Down>/<Up> move (wrapping), <CR>
--- selects, q/<Esc> cancel. Calls on_choice with the selected index only.
+-- Centered floating list picker: leaves Insert mode; j/k/<Down>/<Up> move
+-- (wrapping), <CR> selects, and q/<Esc> cancel. Calls on_choice with the
+-- selected index, or the optional on_cancel callback after cancellation.
 function M.select(prompt, labels, on_choice, on_cancel)
     if #labels == 0 then
         return
