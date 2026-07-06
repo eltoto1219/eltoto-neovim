@@ -228,6 +228,7 @@ return {
             head_watchers[head_file] = watcher
             watcher:start(head_file, {}, vim.schedule_wrap(function()
                 vim.fn.FugitiveDetect(vim.fn.getcwd())
+                require("eltoto.treehouse").refresh_all_git_caches()
                 require("lualine").refresh({ place = { "statusline" } })
             end))
         end

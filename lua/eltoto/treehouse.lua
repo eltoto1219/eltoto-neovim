@@ -731,6 +731,12 @@ function M.statusline()
     return string.format("[TH: %s | %s%s]", task, cached.branch, dirty)
 end
 
+function M.refresh_all_git_caches()
+    for display_name in pairs(workspace_paths) do
+        refresh_git_cache(display_name)
+    end
+end
+
 function M.setup()
     local group = vim.api.nvim_create_augroup("EltotoTreehouse", { clear = true })
 

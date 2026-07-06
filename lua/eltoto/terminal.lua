@@ -340,7 +340,7 @@ local function wipe_unlisted_name_holder(name, keep_bufnr)
         if buf ~= keep_bufnr and vim.fn.buflisted(buf) == 0 then
             local bufname = vim.api.nvim_buf_get_name(buf)
             if bufname == name or vim.fs.basename(bufname) == name then
-                pcall(vim.api.nvim_buf_delete, buf, { force = true })
+                pcall(vim.api.nvim_buf_delete, buf, { force = false })
             end
         end
     end
