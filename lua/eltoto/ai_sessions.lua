@@ -103,11 +103,14 @@ local function load_registry()
     end
 end
 
+local function entry_is_restorable(entry)
+    return type(entry.id) == "string" and entry.id ~= ""
+end
+
 local function save_registry()
     local list = {}
     for _, entry in pairs(entries) do
-        -- prune entries that were never used so stale IDs don't pile up
-        if entry.title and entry.title ~= "" then
+        if entry_is_restorable(entry) then
             list[#list + 1] = entry
         end
     end
@@ -497,10 +500,8 @@ local function restorable_entries(scope_cwd)
     local scope = scope_cwd and vim.fs.normalize(scope_cwd) or nil
     local list = {}
     for key, entry in pairs(entries) do
-        -- skip entries that were never used (no title = session ID was pre-assigned
-        -- but no message was ever sent, so claude never created the session file)
         if not entry_is_alive(key)
-            and (entry.title and entry.title ~= "")
+            and entry_is_restorable(entry)
             and (not scope or vim.fs.normalize(entry.cwd or "") == scope)
         then
             list[#list + 1] = entry

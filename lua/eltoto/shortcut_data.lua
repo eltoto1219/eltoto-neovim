@@ -199,9 +199,12 @@ M.sections = {
             "A git hunk is one contiguous changed block in the current file compared with Git.",
         },
         entries = {
-            { lhs = ":Git", desc = "open Fugitive git status" },
-            { lhs = "]h",   desc = "jump to the next git hunk" },
-            { lhs = "[h",   desc = "jump to the previous git hunk" },
+            { lhs = ":Git",       desc = "open Fugitive git status" },
+            { lhs = "]h",         desc = "jump to the next git hunk" },
+            { lhs = "[h",         desc = "jump to the previous git hunk" },
+            { lhs = "<leader>gr", desc = "reset the current git hunk" },
+            { lhs = "<leader>gp", desc = "preview the current git hunk" },
+            { lhs = "<leader>gb", desc = "show Git blame for the current line" },
         },
     },
     {

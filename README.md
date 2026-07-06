@@ -48,7 +48,7 @@ Then:
 1. Open Neovim.
 2. Run `:AIStatus` to confirm your AI environment is visible.
 3. Open the shortcut popup with `<leader>?`.
-4. Start working with `<leader>pf`, `<leader>t`, `<leader>e`, and `<leader>a`.
+4. Start working with `<leader>pf`, `<leader>t`, `<leader>e`, and `<leader>m`.
 
 ## ✨ What This Project Does
 
@@ -132,7 +132,7 @@ A common workflow in this config looks like this:
 4. Use `<leader>pn` to create a persistent shpool-backed process for anything long-running, then `<leader>pp` or `<leader>pa` to reattach later.
 5. Use `<leader>fa` for a disposable Treehouse workspace or `<leader>fl` for a named lease, then work in its persistent terminal session.
 6. Run the current file with `<leader>e`, using the filetype-aware runner instead of opening another shell manually.
-7. Use `<leader>a` to toggle the last AI buffer or `<leader>A` to open a new Claude or Codex session.
+7. Use `<leader>m` to toggle the last AI buffer or `<leader>M` to open a new Claude or Codex session.
 8. Use `:AIStatus`, `:EltotoHealth`, and `./scripts/check.sh` when something looks wrong instead of guessing.
 
 The point is that editing, running code, long-lived processes, and AI assistance all live in one coherent workflow.
@@ -488,6 +488,9 @@ Git and Project Marks
 - `:Git`: open Fugitive git status
 - `]h`: jump to the next git hunk
 - `[h`: jump to the previous git hunk
+- `<leader>gr`: reset the current git hunk
+- `<leader>gp`: preview the current git hunk
+- `<leader>gb`: show Git blame for the current line
 
 Messages and Diagnostics
 - `<leader>nd`: dismiss Noice messages

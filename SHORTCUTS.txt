@@ -146,6 +146,9 @@ Git and Project Marks
 - :Git : open Fugitive git status
 - ]h : jump to the next git hunk
 - [h : jump to the previous git hunk
+- <leader>gr : reset the current git hunk
+- <leader>gp : preview the current git hunk
+- <leader>gb : show Git blame for the current line
 
 Messages and Diagnostics
 - <leader>nd : dismiss Noice messages
