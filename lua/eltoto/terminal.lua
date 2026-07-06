@@ -131,12 +131,6 @@ safe_switch_buffer = function(bufnr)
     end)
 end
 
-local function safe_switch_alternate_buffer()
-    return with_current_window_buffer_unlocked(function()
-        vim.cmd.buffer({ args = { "#" }, bang = true })
-    end)
-end
-
 local function safe_enew()
     return with_current_window_buffer_unlocked(function()
         vim.cmd.enew()
@@ -242,22 +236,22 @@ function M.toggle()
     local current = vim.api.nvim_get_current_buf()
     local terms = plain_terminal_buffers()
 
-    if M.is_terminal(current) then
-        local last_edit = buffers.get_last_edit_buf()
-        if last_edit then
-            if not safe_switch_buffer(last_edit) then
+    if M.is_terminal(current) and vim.b[current].eltoto_ai_kind == nil then
+        local target = buffers.get_edit_return_buf()
+        if target then
+            if not safe_switch_buffer(target) then
                 return
             end
             restore_tree_for_file()
-            return
-        end
-
-        local alternate = vim.fn.bufnr("#")
-        if buffers.is_named_edit_buf(alternate) then
-            if not safe_switch_alternate_buffer() then
-                return
+        else
+            -- no file to return to; check for an AI buffer (lazy require avoids circular dep)
+            local ok, ai = pcall(require, "eltoto.ai_sessions")
+            if ok and ai.get_last_ai_buf then
+                local ai_buf = ai.get_last_ai_buf()
+                if ai_buf and safe_switch_buffer(ai_buf) then
+                    vim.cmd.startinsert()
+                end
             end
-            restore_tree_for_file()
         end
         return
     end

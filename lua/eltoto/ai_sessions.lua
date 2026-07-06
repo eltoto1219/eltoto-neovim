@@ -418,8 +418,21 @@ local function live_ai_buffers()
         end
     end
 
-    table.sort(list)
+    table.sort(list, function(a, b)
+        local ka, kb = buffers[a], buffers[b]
+        local ea = ka and entries[ka] or nil
+        local eb = kb and entries[kb] or nil
+        return (ea and ea.last_used or 0) > (eb and eb.last_used or 0)
+    end)
     return list
+end
+
+function M.get_last_ai_buf()
+    if M.is_ai_buffer(last_ai_bufnr or -1) then
+        return last_ai_bufnr
+    end
+    local live = live_ai_buffers()
+    return live[1]
 end
 
 local function focus_ai(bufnr)
@@ -443,7 +456,7 @@ function M.toggle()
     if M.is_ai_buffer(current) then
         local target = toggle_return_bufnr
         if not (target and vim.api.nvim_buf_is_valid(target) and vim.fn.buflisted(target) == 1 and not M.is_ai_buffer(target)) then
-            target = require("eltoto.buffers").get_last_edit_buf()
+            target = require("eltoto.buffers").get_edit_return_buf()
         end
         if target then
             pcall(vim.api.nvim_set_current_buf, target)
@@ -453,12 +466,8 @@ function M.toggle()
 
     toggle_return_bufnr = current
 
-    if M.is_ai_buffer(last_ai_bufnr or -1) and focus_ai(last_ai_bufnr) then
-        return
-    end
-
-    local live = live_ai_buffers()
-    if live[1] and focus_ai(live[1]) then
+    local target_ai = M.get_last_ai_buf()
+    if target_ai and focus_ai(target_ai) then
         return
     end
 

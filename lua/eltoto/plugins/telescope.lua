@@ -11,7 +11,11 @@ return {
             local builtin = require('telescope.builtin')
             vim.keymap.set('n', '<leader>pf', builtin.find_files, { desc = "Find files" })
             vim.keymap.set('n', '<leader>ps', builtin.git_files, { desc = "Find git files" })
-            vim.keymap.set('n', '<leader>bb', builtin.buffers, { desc = "Buffer picker" })
+            vim.keymap.set('n', '<leader>b', builtin.buffers, { desc = "Buffer picker" })
+            vim.keymap.set('t', '<leader>b', function()
+                vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+                vim.schedule(builtin.buffers)
+            end, { desc = "Buffer picker from terminal" })
             vim.keymap.set('n', '<leader>pg', function()
                 builtin.grep_string({ search = vim.fn.input("Grep > ")});
             end, { desc = "Grep string" })

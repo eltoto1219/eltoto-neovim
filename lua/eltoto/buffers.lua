@@ -1,6 +1,7 @@
 local M = {}
 
 local last_edit_bufnr = nil
+local last_bufnr = nil
 
 local function close_tree_if_visible()
     local ok, api = pcall(require, "nvim-tree.api")
@@ -125,6 +126,29 @@ function M.get_last_edit_buf()
     return nil
 end
 
+-- Where a terminal/AI toggle should land when jumping "back": the last file
+-- buffer, else the alternate file, else any listed non-terminal buffer (e.g.
+-- the unnamed startup buffer when nvim was opened without a file).
+function M.get_edit_return_buf()
+    local last_edit = M.get_last_edit_buf()
+    if last_edit then
+        return last_edit
+    end
+
+    local alternate = vim.fn.bufnr("#")
+    if is_named_edit_buf(alternate) then
+        return alternate
+    end
+
+    for _, bufinfo in ipairs(listed_buffers()) do
+        if not is_terminal_buf(bufinfo.bufnr) then
+            return bufinfo.bufnr
+        end
+    end
+
+    return nil
+end
+
 function M.jump_to(index)
     local target = M.real_edit_buffers()[index]
     if target then
@@ -133,14 +157,20 @@ function M.jump_to(index)
 end
 
 function M.alternate()
+    local current = vim.api.nvim_get_current_buf()
+    if last_bufnr and vim.api.nvim_buf_is_valid(last_bufnr) and vim.fn.buflisted(last_bufnr) == 1 and last_bufnr ~= current then
+        safe_switch_current_window_buffer(last_bufnr)
+        return
+    end
+
     local alternate = vim.fn.bufnr("#")
-    if is_named_edit_buf(alternate) then
+    if is_named_edit_buf(alternate) and alternate ~= current then
         safe_switch_current_window_buffer(alternate)
         return
     end
 
     local last_edit = M.get_last_edit_buf()
-    if last_edit and last_edit ~= vim.api.nvim_get_current_buf() then
+    if last_edit and last_edit ~= current then
         safe_switch_current_window_buffer(last_edit)
     end
 end
@@ -297,6 +327,15 @@ function M.setup()
         callback = function(event)
             if is_named_edit_buf(event.buf) then
                 last_edit_bufnr = event.buf
+            end
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("BufLeave", {
+        group = group,
+        callback = function(event)
+            if vim.api.nvim_buf_is_valid(event.buf) and vim.fn.buflisted(event.buf) == 1 then
+                last_bufnr = event.buf
             end
         end,
     })

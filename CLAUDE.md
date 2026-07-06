@@ -30,6 +30,8 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 - shpool spawns login shells; `.bashrc` sourcing for login shells is handled by `ensure_login_shell_sources_bashrc` in setup.sh.
 - The live agent input box is drawn inside a border and never matches `terminal.M.prompt_pattern`; `]a` handles it with an explicit jump-to-bottom fallback.
 - In `-l` test scripts `startinsert` stays pending until the script ends, so terminal-input mode cannot be asserted; tests also must never send a bare `claude`/`codex` to a shell (it launches a real session whose TUI repaints the buffer).
+- To repro real keybind flows (t-mode maps, mode transitions): run `nvim --listen <sock>` inside tmux, drive keys with `tmux send-keys`, assert via `nvim --server <sock> --remote-expr`; fake an AI buffer with `terminal.open_command('<script>', 'x', {ai_kind='claude'})`. `:messages`/`execute("messages")` is empty under noice, useless for debugging.
+- Terminal/AI toggles must always land somewhere: with no file ever opened, `get_last_edit_buf()` is nil - fall back via `buffers.get_edit_return_buf()` (else the toggle silently no-ops after the t-mode map already left insert mode).
 
 ## Corrections log
 

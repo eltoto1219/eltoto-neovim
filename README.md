@@ -384,12 +384,12 @@ Files and Search
 - `<leader>pf`: Telescope file picker
 - `<leader>ps`: Telescope git-tracked file picker
 - `<leader>pg`: grep for an entered string with Telescope
-- `<leader>bb`: Telescope buffer picker
+- `<leader>b`: Telescope buffer picker
 - `<leader>pv`: toggle the file explorer in a left vertical split
 - `<leader>w`: save the current file
 - `qa`: force quit the current window
 - `qq`: close the current window when multiple file windows are visible; otherwise close the current buffer or quit Neovim when only terminal buffers remain
-- `<leader>ba`: jump to the alternate or last file buffer
+- `<leader>y`: jump to the alternate or last file buffer
 
 Regular Buffer Navigation
 - `<leader>;`: jump to the next regular file buffer
