@@ -708,6 +708,14 @@ function M.return_workspace()
     end)
 end
 
+-- Branch for the current buffer's treehouse workspace, or nil if not in one.
+function M.current_buf_branch()
+    local display_name = buffer_session(vim.api.nvim_get_current_buf())
+    if not display_name then return nil end
+    local cached = git_cache[display_name]
+    return cached and cached.branch ~= "?" and cached.branch or nil
+end
+
 -- statusline component: call from lualine or raw statusline
 -- returns "" when not in a treehouse buffer so it takes no space
 function M.statusline()

@@ -332,12 +332,30 @@ function M.backward()
     cycle(-1)
 end
 
+-- nvim_buf_set_name has :file semantics: the old name is kept on a new
+-- unlisted buffer. Those leftovers make later renames fail with "buffer name
+-- already in use", so terminals get stuck on stale T:n names after closes.
+local function wipe_unlisted_name_holder(name, keep_bufnr)
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if buf ~= keep_bufnr and vim.fn.buflisted(buf) == 0 then
+            local bufname = vim.api.nvim_buf_get_name(buf)
+            if bufname == name or vim.fs.basename(bufname) == name then
+                pcall(vim.api.nvim_buf_delete, buf, { force = true })
+            end
+        end
+    end
+end
+
 function M.refresh_names()
     for index, bufinfo in ipairs(listed_terminal_buffers()) do
         local desired = M.label_for_buf(bufinfo.bufnr) or ("T:" .. index)
+        local current = vim.api.nvim_buf_get_name(bufinfo.bufnr)
 
-        if vim.api.nvim_buf_get_name(bufinfo.bufnr) ~= desired then
-            pcall(vim.api.nvim_buf_set_name, bufinfo.bufnr, desired)
+        if vim.fs.basename(current) ~= desired then
+            wipe_unlisted_name_holder(desired, bufinfo.bufnr)
+            if pcall(vim.api.nvim_buf_set_name, bufinfo.bufnr, desired) then
+                wipe_unlisted_name_holder(current, bufinfo.bufnr)
+            end
         end
     end
 end
@@ -350,10 +368,14 @@ function M.rename_current()
         return
     end
 
+    -- Persistent process labels keep their P:/P:th: prefix across renames.
+    local existing = custom_labels[current] or ""
+    local prefix = existing:match("^(P:th:)") or existing:match("^(P:)")
+
     ui_input.centered({
         title = " Terminal Name ",
         prompt = "Name: ",
-        default = "",
+        default = prefix and existing:sub(#prefix + 1) or "",
     }, function(input)
         if input == nil then
             return
@@ -361,11 +383,15 @@ function M.rename_current()
 
         local trimmed = vim.trim(input)
         if trimmed == "" then
+            if prefix then
+                vim.notify("Persistent terminals need a name after " .. prefix, vim.log.levels.WARN)
+                return
+            end
             custom_labels[current] = nil
             vim.notify("Reset terminal name to default numbering")
         else
-            custom_labels[current] = trimmed
-            vim.notify("Renamed terminal to " .. trimmed)
+            custom_labels[current] = (prefix or "") .. trimmed
+            vim.notify("Renamed terminal to " .. (prefix or "") .. trimmed)
         end
 
         M.refresh_names()

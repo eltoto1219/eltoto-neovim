@@ -201,15 +201,9 @@ M.sections = {
         notes = {
             "Use :Git to open Fugitive status. Inside :Git status, use - to stage or unstage, = to inspect diffs, cc to commit, ca to amend, p to push, P to pull, and q to close the window.",
             "Useful commands: :Git push, :Git pull, :Git fetch, :Git blame, :Gdiffsplit, :Gvdiffsplit, :Git log -- %, :0Gclog, :Git rebase -i HEAD~N.",
-            "A git hunk is one contiguous changed block in the current file compared with Git.",
         },
         entries = {
             { lhs = ":Git",       desc = "open Fugitive git status" },
-            { lhs = "]h",         desc = "jump to the next git hunk" },
-            { lhs = "[h",         desc = "jump to the previous git hunk" },
-            { lhs = "<leader>gr", desc = "reset the current git hunk" },
-            { lhs = "<leader>gp", desc = "preview the current git hunk" },
-            { lhs = "<leader>gb", desc = "show Git blame for the current line" },
         },
     },
     {
