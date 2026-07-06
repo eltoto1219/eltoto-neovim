@@ -37,6 +37,7 @@ end
 local server_job = nil
 local pending = {}
 local stdout_partial = ""
+local stderr_output = ""
 
 local function ensure_server()
     if server_job then
@@ -44,6 +45,7 @@ local function ensure_server()
     end
 
     stdout_partial = ""
+    stderr_output = ""
     server_job = vim.fn.jobstart(M.serve_command(), {
         on_stdout = function(_, data)
             data[1] = stdout_partial .. data[1]
@@ -62,13 +64,19 @@ local function ensure_server()
                 end
             end
         end,
+        on_stderr = function(_, data)
+            stderr_output = (stderr_output .. table.concat(data, "\n")):sub(-8192)
+        end,
         on_exit = vim.schedule_wrap(function()
             server_job = nil
             stdout_partial = ""
+            local detail = vim.trim(stderr_output)
+            stderr_output = ""
+            local error = detail == "" and "server exited" or "server exited: " .. detail
             local failed = pending
             pending = {}
             for _, callback in ipairs(failed) do
-                callback(nil)
+                callback({ error = error })
             end
         end),
     })
@@ -118,11 +126,6 @@ local function transcribe(path, tgt)
 
     table.insert(pending, function(response)
         vim.fn.delete(path)
-
-        if response == nil then
-            vim.notify("Transcription failed (server exited)", vim.log.levels.ERROR)
-            return
-        end
 
         if response.error then
             vim.notify("Transcription failed: " .. response.error, vim.log.levels.ERROR)
