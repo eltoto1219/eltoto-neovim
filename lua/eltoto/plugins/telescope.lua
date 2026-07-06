@@ -16,7 +16,7 @@ return {
                 end
             end
             local function grep_input()
-                builtin.grep_string({ search = vim.fn.input("Grep > ")});
+                builtin.grep_string({ search = vim.fn.input("Grep > ") })
             end
             vim.keymap.set('n', '<leader>pf', builtin.find_files, { desc = "Find files" })
             vim.keymap.set('t', '<leader>pf', from_terminal(builtin.find_files), { desc = "Find files from terminal" })
