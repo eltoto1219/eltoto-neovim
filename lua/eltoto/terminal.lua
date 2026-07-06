@@ -280,7 +280,15 @@ end
 
 local function cycle(offset)
     local current = vim.api.nvim_get_current_buf()
-    local terms = M.buffer_info()
+    local current_is_ai = vim.b[current].eltoto_ai_kind ~= nil
+    local all = M.buffer_info()
+    local terms = {}
+    for _, item in ipairs(all) do
+        local item_is_ai = vim.b[item.bufnr].eltoto_ai_kind ~= nil
+        if item_is_ai == current_is_ai then
+            terms[#terms + 1] = item
+        end
+    end
 
     for index, item in ipairs(terms) do
         if item.bufnr == current then
