@@ -713,7 +713,7 @@ function M.current_buf_branch()
     local display_name = buffer_session(vim.api.nvim_get_current_buf())
     if not display_name then return nil end
     local cached = git_cache[display_name]
-    return cached and cached.branch ~= "?" and cached.branch or nil
+    return cached and cached.branch or "?"
 end
 
 function M.current_buf_workspace_path(bufnr)
