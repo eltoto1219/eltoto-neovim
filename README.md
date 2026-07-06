@@ -206,7 +206,7 @@ The Treehouse integration is a launcher and visibility layer over Treehouse's re
 
 After a successful acquisition, a picker offers to start Claude or Codex in the workspace; press `q` or `Esc` to keep the plain shell. Selecting an agent that is not installed reports the problem and also leaves the shell active. A selected agent runs inside the workspace's `shpool` session with the same always-on CLI flags as a regular AI session, including Claude's `--dangerously-skip-permissions` or Codex's approval, sandbox, and hook-trust bypasses. It stays out of the AI session registry because `shpool` already provides its persistence.
 
-Every acquired workspace uses a durable Treehouse lease and a persistent `shpool` session named `th:<task>`. It appears as `P:th:<task>` in the persistent process picker and survives terminal-buffer closes and Neovim restarts. The statusline shows the task, branch, and `*` when the workspace is dirty.
+Every acquired workspace uses a durable Treehouse lease and a persistent `shpool` session named `th:<task>`. It appears as `P:th:<task>` in the persistent process picker and survives terminal-buffer closes and Neovim restarts. The statusline shows the task, branch, and `*` when the workspace is dirty; its branch indicators update automatically after branch changes made in a terminal.
 
 Workspace paths are cached only for the current Neovim process. After restarting Neovim, use `<leader>fs` to recover a path; existing Treehouse sessions can still be reopened with `<leader>fw`, but returning a workspace requires its path to have been cached in the current process.
 
@@ -348,7 +348,7 @@ General
 - `:AIStatus`: show OpenAI key visibility, Codex/Claude availability, and Copilot status
 - `:EltotoHealth`: run the Neovim health check for this config
 - `:TerminalConfig`: open the runner popup for the current filetype and set default or session-only custom <leader>e behavior
-- `:TerminalRename`: rename the current terminal buffer, or reset to default numbering with an empty name
+- `:TerminalRename`: rename the current terminal buffer; an empty name resets plain terminals, while persistent terminals retain their P:/P:th: prefix and require a name
 - `:TerminalProcesses`: open the persistent terminal picker
 - `:TerminalProcessNew`: create a new persistent terminal process
 - `:TerminalProcessKill`: kill a persistent terminal process
@@ -394,7 +394,7 @@ Files and Search
 - `<leader>pv`: toggle the file explorer in a left vertical split
 - `<leader>w`: save the current file
 - `qa`: force quit the current window
-- `qq`: close the current window when multiple file windows are visible; otherwise close the current buffer or quit Neovim when only terminal buffers remain
+- `qq`: close the current window when multiple normal windows are visible; otherwise close the current buffer; terminals prefer the same AI/plain type, then another terminal, then a file; quit when no other real buffer remains
 - `<leader>y`: jump to the alternate or last file buffer
 
 Regular Buffer Navigation
@@ -407,9 +407,9 @@ Terminal Workflow
 - `terminal <leader>;`: jump to the next terminal buffer and stay in terminal input mode
 - `terminal <leader>,`: jump to the previous terminal buffer and stay in terminal input mode
 - `terminal <leader>1`: jump to buffer 1 from a terminal
-- `terminal <leader>r`: rename the current terminal buffer
+- `terminal <leader>r`: rename the current terminal buffer; persistent terminals keep their P:/P:th: prefix
 - `terminal qa`: force quit the current window
-- `terminal qq`: close the current window if split, otherwise close the current terminal buffer or quit Neovim if no file buffers remain
+- `terminal qq`: close the current window if split; otherwise close this terminal and switch to another of the same AI/plain type, falling back to another terminal then a file, or quit if none remain
 - `terminal jk`: leave terminal input mode
 - `terminal buffers`: default to T:1, T:2, T:3, ... and may be manually renamed
 - `:b T:1`: jump directly to a named terminal buffer
@@ -420,6 +420,7 @@ Persistent Processes
 - Scrollback is native: shpool passes raw output through, so the terminal buffer holds the history and all normal vim motions, search, visual mode, and yank work directly.
 - On reattach, shpool replays the last 10000 lines of session output into the buffer (session_restore_mode in ~/.config/shpool/config.toml).
 - The process picker shows each session's recorded working directory; attaching an already-open session focuses its existing buffer instead of opening a duplicate.
+- Renaming a persistent terminal changes only the name after its P: or P:th: prefix; the name cannot be empty.
 - All <leader>p* maps below also work from terminal input mode (including AI buffers).
 - `persistent buffers`: are labeled P:<name> in the tabline, and :b P:<name> jumps to one directly
 - `<leader>pp`: open the persistent terminal picker and attach to a selected process
@@ -434,7 +435,7 @@ Treehouse Workspaces
 - Treehouse manages a pool of git worktrees. Leased workspaces persist until explicitly returned; disposable ones are auto-named.
 - Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.
 - Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.
-- The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.
+- In a Treehouse buffer, the statusline shows the workspace branch plus [TH: <task> | <branch> *]; branch changes made in a terminal are detected automatically.
 - After acquisition, pick claude or codex to run it inside the shpool session with the standard unsafe flags; q/Esc or an unavailable agent keeps a plain shell. Workspace agents are not added to the AI session registry.
 - `<leader>fa`: acquire a disposable treehouse workspace and open a persistent session inside it; a popup offers to start claude or codex there
 - `<leader>fl`: acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it, with the same agent popup

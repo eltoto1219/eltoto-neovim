@@ -519,7 +519,7 @@ function M.setup()
     local group = vim.api.nvim_create_augroup("EltotoTerminalState", { clear = true })
 
     vim.api.nvim_create_user_command("TerminalRename", M.rename_current, {
-        desc = "Rename the current terminal buffer",
+        desc = "Rename a terminal while preserving persistent prefixes",
     })
 
     vim.api.nvim_create_autocmd({ "TermOpen", "BufAdd", "BufEnter", "BufWipeout", "BufDelete" }, {

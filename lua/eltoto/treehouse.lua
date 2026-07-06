@@ -708,7 +708,8 @@ function M.return_workspace()
     end)
 end
 
--- Branch for the current buffer's treehouse workspace, or nil if not in one.
+-- Branch for the current buffer's treehouse workspace, "?" while its cache is
+-- loading, or nil when the buffer is not in a workspace.
 function M.current_buf_branch()
     local display_name = buffer_session(vim.api.nvim_get_current_buf())
     if not display_name then return nil end
@@ -716,6 +717,8 @@ function M.current_buf_branch()
     return cached and cached.branch or "?"
 end
 
+-- Filesystem path for a buffer's treehouse workspace, or nil when it is not in
+-- one. Defaults to the current buffer.
 function M.current_buf_workspace_path(bufnr)
     local display_name = buffer_session(bufnr or vim.api.nvim_get_current_buf())
     return display_name and workspace_paths[display_name] or nil
@@ -736,6 +739,7 @@ function M.statusline()
     return string.format("[TH: %s | %s%s]", task, cached.branch, dirty)
 end
 
+-- Refresh cached Git branch and dirty state for every known workspace.
 function M.refresh_all_git_caches()
     for display_name in pairs(workspace_paths) do
         refresh_git_cache(display_name)
