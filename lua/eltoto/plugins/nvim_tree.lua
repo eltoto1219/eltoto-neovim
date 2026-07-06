@@ -87,14 +87,19 @@ return {
                 end,
             })
 
-            vim.keymap.set("n", "<leader>pv", function()
+            local function toggle_tree()
                 local api = require("nvim-tree.api")
 
                 api.tree.toggle({
                     find_file = true,
                     focus = true,
                 })
-            end, { desc = "Toggle file explorer" })
+            end
+            vim.keymap.set("n", "<leader>pv", toggle_tree, { desc = "Toggle file explorer" })
+            vim.keymap.set("t", "<leader>pv", function()
+                vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+                vim.schedule(toggle_tree)
+            end, { desc = "Toggle file explorer from terminal" })
         end,
     },
 }

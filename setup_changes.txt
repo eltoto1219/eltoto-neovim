@@ -1,0 +1,17 @@
+this project has grown in both size and dependencies, we need to do an audit of the current scripts/setup.sh script and add neccessary dependencies and changes
+so that it works properly
+
+1. First, we need to make sure we have all the basics installed for neovim, python, and its dependencies
+2. ensure brew is installed, linux setup route and mac setup route
+3. cargo, shpool, and all other dependencies i did not mention
+4. then make sure codex and claude are installed, if not install them
+5. make sure skill manager and skill creation skills are also installed, I think npx will also be a dependency.
+5. then we need to make sure all skills get installed (especially ponytail), this may require a login by the user  during setup. if so, include the login in the  setup
+6. we need to make sure ~/.claude/CLAUDE.md and ~/AGENTS.md are symlinked so everything can be platform agnostic
+7. give user option to append ~/.claude/CLAUDE.md  and ~/AGENTS.md to current CLAUDE.md and AGENTS.md if they exist, or overwrite them if they do exist. create if they dont exist
+8. then, we need to make sure axi is installed and  usable by codex/claude, specically github-axi and chrome-dev-tools axi, and any other axi currently installed
+9. use my fork of no-mistakes and auto install, uninstall any previous old versions.
+10. my fork of no-mistakes should be cloned into this location: ~/.local/share/no-mistakes
+For setup.sh later, the idempotent recipe is three lines: clone-or-pull ~/.local/share/no-mistakes, make -C ~/.local/share/no-mistakes install, ln -sf
+  ~/go/bin/no-mistakes ~/.local/bin/.
+11. some no mistake config options need to automatically be changed too, or we can just copy and paste our current config. specifically, i want to use codex by default, and for the commit.fix_message to be: {({.Step}}), ({{.Summary})}, and pr_signature: false in the config too. 12. make sure /kunchenguid/treehouse is installed I dont know if these are the right order in which you should implement things, and I may be missing other things, in which I need you to see my blindspots and suggest if there is anything else we should add also, is having all my agent setup stuff in my neovim config a good idea, if not how should we approach it.

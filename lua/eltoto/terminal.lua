@@ -201,6 +201,15 @@ local function plain_terminal_buffers()
     return terms
 end
 
+function M.focus(bufnr)
+    hide_tree_for_terminal()
+    if not safe_switch_buffer(bufnr) then
+        return false
+    end
+    enter_insert()
+    return true
+end
+
 function M.ensure()
     local terms = plain_terminal_buffers()
     local current = vim.api.nvim_get_current_buf()
@@ -385,22 +394,34 @@ local function prompt_jump(direction)
 end
 
 function M.set_prompt_jump_keymaps(bufnr)
-    vim.keymap.set("n", "[a", prompt_jump(-1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to previous prompt",
-    })
-    vim.keymap.set("n", "]a", prompt_jump(1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to next prompt, or to the live input in normal mode",
-    })
+    local jumps = {
+        { "[a", -1, "Jump to previous prompt" },
+        { "]a", 1, "Jump to next prompt, or to the live input in normal mode" },
+    }
+    for _, jump in ipairs(jumps) do
+        local lhs, direction, desc = unpack(jump)
+        vim.keymap.set("n", lhs, prompt_jump(direction), {
+            buffer = bufnr,
+            silent = true,
+            desc = desc,
+        })
+        vim.keymap.set("t", lhs, function()
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+            vim.schedule(prompt_jump(direction))
+        end, {
+            buffer = bufnr,
+            silent = true,
+            desc = desc,
+        })
+    end
 end
 
-function M.configure_persistent_buffer(bufnr)
+function M.configure_persistent_buffer(bufnr, session_name)
     if not M.is_terminal(bufnr) then
         return
     end
+
+    vim.b[bufnr].eltoto_process_name = session_name
 
     -- shpool passes raw bytes through, so nvim's terminal emulator owns the
     -- history: native motions, search, visual mode, and yank work directly.
@@ -417,6 +438,26 @@ function M.configure_persistent_buffer(bufnr)
     })
 end
 
+function M.persistent_process_name(bufnr)
+    if not M.is_terminal(bufnr) then
+        return nil
+    end
+
+    local name = vim.b[bufnr].eltoto_process_name
+    return type(name) == "string" and name ~= "" and name or nil
+end
+
+function M.find_persistent_buffer(session_name)
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if M.persistent_process_name(bufnr) == session_name then
+            local job_id = vim.b[bufnr].terminal_job_id
+            if type(job_id) == "number" and vim.fn.jobwait({ job_id }, 0)[1] == -1 then
+                return bufnr
+            end
+        end
+    end
+end
+
 function M.setup()
     local group = vim.api.nvim_create_augroup("EltotoTerminalState", { clear = true })
 
@@ -430,7 +471,7 @@ function M.setup()
             if event.event == "BufWipeout" or event.event == "BufDelete" then
                 custom_labels[event.buf] = nil
             elseif M.is_terminal(event.buf) then
-                -- AI harness buffers have their own toggle (<leader>A); keep
+                -- AI harness buffers have their own toggle (<leader>m); keep
                 -- <leader>t pointed at the last plain terminal.
                 if vim.b[event.buf].eltoto_ai_kind == nil then
                     last_terminal_bufnr = event.buf

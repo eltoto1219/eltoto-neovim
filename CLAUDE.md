@@ -15,7 +15,7 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 ## Architecture map
 
 - `lua/eltoto/terminal.lua`: terminal buffer workflow (toggle, cycle, labels T:n, custom labels).
-- `lua/eltoto/processes.lua` + `process_backend.lua`: persistent terminals backed by shpool (`shpool attach -f eltoto-process-<name>`); labels are `P:<name>`; scrollback is native in the nvim buffer, shpool replays the last 10000 lines on reattach (`~/.config/shpool/config.toml`).
+- `lua/eltoto/processes.lua` + `process_backend.lua`: persistent terminals backed by shpool (`shpool attach -f eltoto-process-<name>`); labels are `P:<name>`; creation directories are stored in stdpath("state")/eltoto/process_cwds.json for cwd-scoped attach; scrollback is native in the nvim buffer, shpool replays the last 10000 lines on reattach (`~/.config/shpool/config.toml`).
 - `lua/eltoto/ai_sessions.lua`: claude/codex sessions in terminal buffers; registry in stdpath("state")/eltoto/ai_sessions.json; always-on CLI flags live in `claude_args`/`codex_args` there (shell aliases never apply to termopen).
 - `lua/eltoto/dictation.lua`: `<leader>v` voice dictation (arecord + faster-whisper from the repo `.venv`); transcription runs in a persistent `scripts/transcribe.py --serve` job (one wav path in and one JSON response out per line) so the model loads once per nvim session; model auto-picks medium on GPU / base on CPU (`M.model = nil` = auto), and GPU failures switch that server process to CPU.
 - `lua/eltoto/ui/tabline.lua`: context-sensitive tabline with three groups: files, plain terminals, AI buffers.
@@ -36,5 +36,5 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 ## Corrections log
 
 - 2026-07-03: `:AIRestore` must be scoped to the current working directory, not all cached sessions.
-- 2026-07-03: `<leader>aa`-style pickers should list cached (restorable) sessions too, not only open buffers.
+- 2026-07-03: The `<leader>n` session picker should list cached (restorable) sessions too, not only open buffers.
 - 2026-07-04: treehouse acquisition offers an agent via popup (q/Esc = plain shell), never a hardcoded autostart; agents in workspaces stay out of the ai_sessions registry (shpool already provides their persistence).

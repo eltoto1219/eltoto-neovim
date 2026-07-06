@@ -10,6 +10,7 @@ local terminal = require("eltoto.terminal")
 
 local entries = {}   -- key -> entry { key, kind, id, cwd, title, last_used }
 local buffers = {}   -- bufnr -> key
+local pending_resumes = {}
 local unnamed_counter = 0
 local exiting = false
 local last_ai_bufnr = nil
@@ -103,8 +104,17 @@ local function load_registry()
     end
 end
 
+local function entry_is_restorable(entry)
+    return type(entry.id) == "string" and entry.id ~= ""
+end
+
 local function save_registry()
-    local list = vim.tbl_values(entries)
+    local list = {}
+    for _, entry in pairs(entries) do
+        if entry_is_restorable(entry) then
+            list[#list + 1] = entry
+        end
+    end
     table.sort(list, function(a, b)
         return (a.last_used or 0) > (b.last_used or 0)
     end)
@@ -373,6 +383,9 @@ local function spawn(entry, resume)
     entry.last_used = os.time()
     entries[entry.key] = entry
     buffers[bufnr] = entry.key
+    if resume then
+        pending_resumes[bufnr] = vim.uv.hrtime()
+    end
     save_registry()
 
     if entry.kind == "codex" then
@@ -388,7 +401,7 @@ local function spawn(entry, resume)
     return bufnr
 end
 
-function M.open(kind)
+function M.open(kind, cwd)
     if not M.ensure_available(kind) then
         return
     end
@@ -398,7 +411,7 @@ function M.open(kind)
         key = key,
         kind = kind,
         id = kind == "claude" and key or nil,
-        cwd = vim.fn.getcwd(),
+        cwd = cwd or vim.fn.getcwd(),
         title = nil,
         last_used = os.time(),
     }
@@ -447,7 +460,7 @@ local function focus_ai(bufnr)
     return ok
 end
 
--- <leader>A: like <leader>t but for AI buffers. From a non-AI buffer, jump to
+-- <leader>m: like <leader>t but for AI buffers. From a non-AI buffer, jump to
 -- the last AI buffer used (or offer to spawn one); from an AI buffer, jump
 -- back to wherever the toggle came from.
 function M.toggle()
@@ -474,7 +487,7 @@ function M.toggle()
     M.new_session()
 end
 
--- <leader>A: pick a harness and spawn a fresh AI session buffer.
+-- <leader>M: pick a harness and spawn a fresh AI session buffer.
 function M.new_session()
     local current = vim.api.nvim_get_current_buf()
     if not M.is_ai_buffer(current) then
@@ -491,7 +504,10 @@ local function restorable_entries(scope_cwd)
     local scope = scope_cwd and vim.fs.normalize(scope_cwd) or nil
     local list = {}
     for key, entry in pairs(entries) do
-        if not entry_is_alive(key) and (not scope or vim.fs.normalize(entry.cwd or "") == scope) then
+        if not entry_is_alive(key)
+            and entry_is_restorable(entry)
+            and (not scope or vim.fs.normalize(entry.cwd or "") == scope)
+        then
             list[#list + 1] = entry
         end
     end
@@ -520,7 +536,7 @@ local function restore_cached(scope_cwd)
     return focus, #list
 end
 
--- <leader>aa: picker over the open AI buffers (named as in the tabline) plus
+-- <leader>n: picker over the open AI buffers (named as in the tabline) plus
 -- cached sessions, which are resumed on selection.
 function M.pick()
     local live = live_ai_buffers()
@@ -572,6 +588,7 @@ end
 
 local function forget_buffer(bufnr, remove_entry)
     local key = buffers[bufnr]
+    pending_resumes[bufnr] = nil
     if not key then
         return
     end
@@ -636,14 +653,38 @@ function M.setup()
                 return
             end
 
+            local exit_status = vim.v.event.status
             vim.schedule(function()
                 if not vim.api.nvim_buf_is_valid(event.buf) then
                     forget_buffer(event.buf, false)
                     return
                 end
 
+                local resume_time = pending_resumes[event.buf]
+                local was_failed_resume = resume_time ~= nil
+                    and exit_status ~= 0
+                    and (vim.uv.hrtime() - resume_time) < 5e9
+                local key = buffers[event.buf]
+                local failed_entry = was_failed_resume and entries[key] or nil
+
                 forget_buffer(event.buf, true)
-                if vim.api.nvim_get_current_buf() == event.buf then
+
+                if was_failed_resume then
+                    pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
+                    if failed_entry and vim.fn.executable(failed_entry.kind) == 1 then
+                        vim.defer_fn(function()
+                            local bufnr = M.open(failed_entry.kind, failed_entry.cwd)
+                            if bufnr then
+                                vim.defer_fn(function()
+                                    if vim.api.nvim_buf_is_valid(bufnr) then
+                                        pcall(vim.api.nvim_set_current_buf, bufnr)
+                                        vim.cmd.startinsert()
+                                    end
+                                end, 400)
+                            end
+                        end, 50)
+                    end
+                elseif vim.api.nvim_get_current_buf() == event.buf then
                     require("eltoto.buffers").quit_current_or_window()
                 else
                     pcall(vim.api.nvim_buf_delete, event.buf, { force = true })

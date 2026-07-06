@@ -29,6 +29,8 @@ local function render_plaintext()
         lines[#lines + 1] = ""
     end
 
+    table.remove(lines)
+
     return lines
 end
 
@@ -159,6 +161,13 @@ function M.register()
 
     vim.keymap.set("n", "<leader>?", M.open, {
         desc = "Show shortcut popup",
+        silent = true,
+    })
+    vim.keymap.set("t", "<leader>?", function()
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+        vim.schedule(M.open)
+    end, {
+        desc = "Show shortcut popup from terminal",
         silent = true,
     })
 end

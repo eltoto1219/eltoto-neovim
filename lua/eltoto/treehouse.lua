@@ -1,6 +1,7 @@
 local M = {}
 
 local process_backend = require("eltoto.process_backend")
+local processes = require("eltoto.processes")
 local ai_sessions = require("eltoto.ai_sessions")
 local terminal = require("eltoto.terminal")
 local ui_input = require("eltoto.ui.input")
@@ -338,6 +339,18 @@ local function open_session(display_name, path, create)
         vim.notify("treehouse: session already exists: " .. display_name, vim.log.levels.ERROR)
         return false
     end
+
+    local existing_buf = terminal.find_persistent_buffer(display_name)
+    if existing_buf then
+        if path then
+            workspace_paths[display_name] = path
+            processes.register_session_cwd(display_name, path)
+        end
+        terminal.focus(existing_buf)
+        refresh_git_cache(display_name)
+        return existing_buf
+    end
+
     if not exists and (not path or vim.fn.isdirectory(path) ~= 1) then
         vim.notify("treehouse: path unknown for new session " .. display_name, vim.log.levels.ERROR)
         return false
@@ -359,7 +372,10 @@ local function open_session(display_name, path, create)
         return false
     end
     vim.b[bufnr].eltoto_treehouse_session = display_name
-    terminal.configure_persistent_buffer(bufnr)
+    terminal.configure_persistent_buffer(bufnr, display_name)
+    if path then
+        processes.register_session_cwd(display_name, path)
+    end
 
     refresh_git_cache(display_name)
     return bufnr

@@ -48,7 +48,7 @@ Then:
 1. Open Neovim.
 2. Run `:AIStatus` to confirm your AI environment is visible.
 3. Open the shortcut popup with `<leader>?`.
-4. Start working with `<leader>pf`, `<leader>t`, `<leader>e`, and `<leader>a`.
+4. Start working with `<leader>pf`, `<leader>t`, `<leader>e`, and `<leader>m`.
 
 ## ✨ What This Project Does
 
@@ -132,7 +132,7 @@ A common workflow in this config looks like this:
 4. Use `<leader>pn` to create a persistent shpool-backed process for anything long-running, then `<leader>pp` or `<leader>pa` to reattach later.
 5. Use `<leader>fa` for a disposable Treehouse workspace or `<leader>fl` for a named lease, then work in its persistent terminal session.
 6. Run the current file with `<leader>e`, using the filetype-aware runner instead of opening another shell manually.
-7. Use `<leader>a` to toggle the last AI buffer or `<leader>A` to open a new Claude or Codex session.
+7. Use `<leader>m` to toggle the last AI buffer or `<leader>M` to open a new Claude or Codex session.
 8. Use `:AIStatus`, `:EltotoHealth`, and `./scripts/check.sh` when something looks wrong instead of guessing.
 
 The point is that editing, running code, long-lived processes, and AI assistance all live in one coherent workflow.
@@ -354,6 +354,7 @@ General
 - `:TerminalProcessKill`: kill a persistent terminal process
 - `:TerminalProcessKillAll`: kill all persistent terminal processes
 - `:TerminalProcessAttachLast`: attach the last persistent terminal process
+- `:TerminalProcessAttachAll`: attach all persistent terminal processes recorded for the current working directory
 - `:ShortcutsSync`: regenerate SHORTCUTS.txt and the README shortcuts section
 
 AI Harness Sessions
@@ -361,11 +362,13 @@ AI Harness Sessions
 - Tabs show Unnamed:<n> until the harness titles the session, then follow the session name live.
 - Quitting the harness process (Ctrl-C at its prompt) closes the buffer and drops the session from the cache; closing the buffer with qq keeps the session cached and restorable. Ctrl-C mid-turn just interrupts the harness.
 - Running plain vim with no file arguments restores the cached sessions born in the current directory with the most recent focused, or starts a fresh Claude session there if none exist.
-- `<leader>a`: toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
-- `<leader>A`: pick Claude or Codex and open a new AI session buffer
-- `<leader>d`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
+- If a cached session can no longer be resumed, it is removed and replaced with a fresh session of the same harness in the original working directory.
+- <leader>m, <leader>M, and <leader>n also work from terminal input mode (including AI buffers).
+- `<leader>m`: toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
+- `<leader>M`: pick Claude or Codex and open a new AI session buffer
+- `<leader>n`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
 - `AI buffers`: get their own tabline group, separate from plain terminal buffers
-- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode
+- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode; also works from terminal input mode
 - `:Claude`: open a new Claude Code session in a terminal buffer
 - `:Codex`: open a new Codex session in a terminal buffer
 - `:AIRestore`: restore the cached AI harness sessions born in the current directory
@@ -383,6 +386,7 @@ AI
 - `insert <C-s>`: accept the current Copilot inline suggestion
 
 Files and Search
+- <leader>pf, <leader>ps, <leader>pg, <leader>pv, <leader>b, and <leader>? also work from terminal input mode (including AI buffers).
 - `<leader>pf`: Telescope file picker
 - `<leader>ps`: Telescope git-tracked file picker
 - `<leader>pg`: grep for an entered string with Telescope
@@ -404,6 +408,7 @@ Terminal Workflow
 - `terminal <leader>,`: jump to the previous terminal buffer and stay in terminal input mode
 - `terminal <leader>1`: jump to buffer 1 from a terminal
 - `terminal <leader>r`: rename the current terminal buffer
+- `terminal qa`: force quit the current window
 - `terminal qq`: close the current window if split, otherwise close the current terminal buffer or quit Neovim if no file buffers remain
 - `terminal jk`: leave terminal input mode
 - `terminal buffers`: default to T:1, T:2, T:3, ... and may be manually renamed
@@ -414,10 +419,13 @@ Persistent Processes
 - Closing the attached terminal buffer detaches from the process; it does not kill the shpool session.
 - Scrollback is native: shpool passes raw output through, so the terminal buffer holds the history and all normal vim motions, search, visual mode, and yank work directly.
 - On reattach, shpool replays the last 10000 lines of session output into the buffer (session_restore_mode in ~/.config/shpool/config.toml).
+- The process picker shows each session's recorded working directory; attaching an already-open session focuses its existing buffer instead of opening a duplicate.
+- All <leader>p* maps below also work from terminal input mode (including AI buffers).
 - `persistent buffers`: are labeled P:<name> in the tabline, and :b P:<name> jumps to one directly
 - `<leader>pp`: open the persistent terminal picker and attach to a selected process
 - `<leader>pn`: create a new persistent terminal process
 - `<leader>pa`: attach the last persistent terminal process
+- `<leader>pA`: attach all persistent terminal processes created in the current working directory
 - `<leader>pk`: kill the current persistent terminal process, or select one to kill
 - `<leader>pK`: kill all persistent terminal processes at once
 - `persistent <Esc>`: leave terminal input mode and navigate the scrollback like a normal buffer
@@ -485,16 +493,9 @@ Git and Project Marks
 - `:Git`: open Fugitive git status
 - `]h`: jump to the next git hunk
 - `[h`: jump to the previous git hunk
-- `<leader>gs`: stage the current git hunk
 - `<leader>gr`: reset the current git hunk
 - `<leader>gp`: preview the current git hunk
 - `<leader>gb`: show Git blame for the current line
-- `<leader>m`: add current file to Harpoon
-- `<C-e>`: toggle Harpoon quick menu
-- `<C-h>`: jump to Harpoon file 1
-- `<C-j>`: jump to Harpoon file 2
-- `<C-k>`: jump to Harpoon file 3
-- `<C-l>`: jump to Harpoon file 4
 
 Messages and Diagnostics
 - `<leader>nd`: dismiss Noice messages
