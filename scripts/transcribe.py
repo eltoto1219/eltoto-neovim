@@ -14,42 +14,47 @@ import sys
 
 
 def cuda_available() -> bool:
+    """Return whether the CTranslate2 runtime reports an available GPU."""
     try:
-        import ctranslate2
+        import ctranslate2  # pylint: disable=import-outside-toplevel
 
         return ctranslate2.get_cuda_device_count() > 0
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         return False
 
 
 def load_cpu_model(name):
-    from faster_whisper import WhisperModel
+    """Load a CPU model, using the lightweight default when unspecified."""
+    from faster_whisper import WhisperModel  # pylint: disable=import-outside-toplevel
 
     return WhisperModel(name or "base", device="cpu", compute_type="int8")
 
 
 def load_model(name):
-    from faster_whisper import WhisperModel
+    """Prefer a GPU model and fall back to CPU when initialization fails."""
+    from faster_whisper import WhisperModel  # pylint: disable=import-outside-toplevel
 
     if cuda_available():
         try:
             model = WhisperModel(name or "medium", device="cuda", compute_type="float16")
             return model, True
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
     return load_cpu_model(name), False
 
 
 def transcribe(model, wav) -> str:
+    """Transcribe one wav file with voice activity detection enabled."""
     segments, _info = model.transcribe(wav, vad_filter=True)
     return " ".join(segment.text.strip() for segment in segments).strip()
 
 
 def transcribe_with_fallback(model, using_cuda, model_name, wav):
+    """Transcribe, retrying once on CPU after a GPU failure."""
     try:
         return transcribe(model, wav), model, using_cuda
-    except Exception as gpu_error:
+    except Exception as gpu_error:  # pylint: disable=broad-exception-caught
         if not using_cuda:
             raise
 
@@ -62,6 +67,7 @@ def transcribe_with_fallback(model, using_cuda, model_name, wav):
 
 
 def main() -> None:
+    """Run one-shot transcription or serve newline-delimited requests."""
     model_name = sys.argv[2] if len(sys.argv) > 2 else None
     model, using_cuda = load_model(model_name)
 
@@ -75,7 +81,7 @@ def main() -> None:
                     model, using_cuda, model_name, path
                 )
                 response = {"text": text}
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-exception-caught
                 response = {"error": str(exc)}
             print(json.dumps(response), flush=True)
         return
