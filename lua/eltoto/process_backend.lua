@@ -72,7 +72,7 @@ function M.managed_sessions()
 
     local items = {}
     for _, line in ipairs(lines) do
-        local session = vim.split(line, "\t")[1]
+        local session = vim.trim(vim.split(line, "\t")[1] or "")
         if session and vim.startswith(session, SESSION_PREFIX) then
             items[#items + 1] = {
                 session = session,
