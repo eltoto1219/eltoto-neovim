@@ -380,7 +380,6 @@ local function prompt_jump(direction)
             -- bottom doesn't match the pattern (it's drawn inside a border),
             -- so snap to it and resume typing.
             vim.cmd("normal! G")
-            vim.cmd.startinsert()
         end
     end
 end

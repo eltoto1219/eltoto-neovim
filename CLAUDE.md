@@ -17,7 +17,7 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 - `lua/eltoto/terminal.lua`: terminal buffer workflow (toggle, cycle, labels T:n, custom labels).
 - `lua/eltoto/processes.lua` + `process_backend.lua`: persistent terminals backed by shpool (`shpool attach -f eltoto-process-<name>`); labels are `P:<name>`; scrollback is native in the nvim buffer, shpool replays the last 10000 lines on reattach (`~/.config/shpool/config.toml`).
 - `lua/eltoto/ai_sessions.lua`: claude/codex sessions in terminal buffers; registry in stdpath("state")/eltoto/ai_sessions.json; always-on CLI flags live in `claude_args`/`codex_args` there (shell aliases never apply to termopen).
-- `lua/eltoto/dictation.lua`: `<leader>v` voice dictation (arecord + faster-whisper from the repo `.venv`, `scripts/transcribe.py`).
+- `lua/eltoto/dictation.lua`: `<leader>v` voice dictation (arecord + faster-whisper from the repo `.venv`); transcription runs in a persistent `scripts/transcribe.py --serve` job (one wav path in per line, one transcript line out) so the model loads once per nvim session; model auto-picks medium on GPU / base on CPU (`M.model = nil` = auto).
 - `lua/eltoto/ui/tabline.lua`: context-sensitive tabline with three groups: files, plain terminals, AI buffers.
 - `lua/eltoto/ui/picker.lua`: shared centered floating list picker; reuse it for any new picker.
 

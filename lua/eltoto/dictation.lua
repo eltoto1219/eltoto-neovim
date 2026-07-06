@@ -1,14 +1,17 @@
 local M = {}
 
 -- Voice dictation: <leader>v toggles recording; on stop the clip is
--- transcribed locally (faster-whisper, CPU) and the text lands in the buffer
--- captured at record start — sent to the pty for terminals (AI prompts,
--- shells), inserted at the cursor for file buffers. No window-system
+-- transcribed locally (faster-whisper, GPU when available) and the text lands
+-- in the buffer captured at record start — sent to the pty for terminals (AI
+-- prompts, shells), inserted at the cursor for file buffers. No window-system
 -- injection, so it works the same on X11, Wayland, and over ssh.
+-- Transcription runs in a persistent transcribe.py --serve job so the model
+-- loads once per nvim session, not once per dictation.
 
 local recording_job = nil
 
-M.model = "base"
+-- nil = script default (medium on GPU, base on CPU); set to force a model.
+M.model = nil
 
 -- Overridable seams: swap the recorder per machine, or point transcription
 -- at something else (e.g. an API-based transcriber) without touching logic.
@@ -16,13 +19,58 @@ function M.record_command(path)
     return { "arecord", "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", path }
 end
 
-function M.transcribe_command(path)
+function M.serve_command()
     local python = vim.fs.joinpath(vim.fn.stdpath("config"), ".venv", "bin", "python")
     if vim.fn.executable(python) ~= 1 then
         python = "python3"
     end
 
-    return { python, vim.fs.joinpath(vim.fn.stdpath("config"), "scripts", "transcribe.py"), path, M.model }
+    local cmd = { python, vim.fs.joinpath(vim.fn.stdpath("config"), "scripts", "transcribe.py"), "--serve" }
+    if M.model then
+        table.insert(cmd, M.model)
+    end
+    return cmd
+end
+
+-- One transcript line comes back per wav path sent; pending callbacks are
+-- resolved in send order.
+local server_job = nil
+local pending = {}
+local stdout_partial = ""
+
+local function ensure_server()
+    if server_job then
+        return server_job
+    end
+
+    stdout_partial = ""
+    server_job = vim.fn.jobstart(M.serve_command(), {
+        on_stdout = function(_, data)
+            data[1] = stdout_partial .. data[1]
+            stdout_partial = table.remove(data)
+            for _, line in ipairs(data) do
+                local callback = table.remove(pending, 1)
+                if callback then
+                    vim.schedule(function()
+                        callback(line)
+                    end)
+                end
+            end
+        end,
+        on_exit = vim.schedule_wrap(function()
+            server_job = nil
+            stdout_partial = ""
+            local failed = pending
+            pending = {}
+            for _, callback in ipairs(failed) do
+                callback(nil)
+            end
+        end),
+    })
+    if server_job <= 0 then
+        server_job = nil
+    end
+    return server_job
 end
 
 local function capture_target()
@@ -57,22 +105,29 @@ end
 
 local function transcribe(path, tgt)
     vim.notify("Transcribing...")
-    vim.system(M.transcribe_command(path), { text = true }, vim.schedule_wrap(function(result)
+    if not ensure_server() then
+        vim.fn.delete(path)
+        vim.notify("Could not start transcription server", vim.log.levels.ERROR)
+        return
+    end
+
+    table.insert(pending, function(line)
         vim.fn.delete(path)
 
-        if result.code ~= 0 then
-            vim.notify("Transcription failed: " .. vim.trim(result.stderr or ""), vim.log.levels.ERROR)
+        if line == nil then
+            vim.notify("Transcription failed (server exited)", vim.log.levels.ERROR)
             return
         end
 
-        local text = vim.trim(result.stdout or "")
+        local text = vim.trim(line)
         if text == "" then
             vim.notify("No speech detected", vim.log.levels.INFO)
             return
         end
 
         deliver(tgt, text)
-    end))
+    end)
+    vim.fn.chansend(server_job, path .. "\n")
 end
 
 function M.toggle()

@@ -720,8 +720,8 @@ python -m pip install -r "$REQS_FILE"
 
 # Pre-download the dictation model so the first <leader>v is not a multi-
 # minute wait; non-fatal on machines without network or disk to spare.
-echo "Pre-downloading whisper 'base' model for dictation"
-python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')" \
+echo "Pre-downloading the whisper dictation model (medium on GPU, base on CPU)"
+python "$ROOT_DIR/scripts/transcribe.py" --serve </dev/null \
     || warn "could not pre-download the whisper model; it will download on first dictation use"
 ensure_openai_api_key_placeholder
 ensure_vi_mode_in_shell_rcs
