@@ -180,4 +180,3 @@ LSP and Diagnostics
 - <leader>r : show diagnostic float
 - <leader>q : send diagnostics to the location list
 - insert <C-h> : signature help
-
