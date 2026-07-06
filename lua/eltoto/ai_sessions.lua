@@ -65,6 +65,20 @@ function M.shell_command(kind)
     return table.concat(escaped, " ")
 end
 
+function M.ensure_available(kind)
+    if not M.commands[kind] then
+        vim.notify("Unknown AI harness: " .. tostring(kind), vim.log.levels.ERROR)
+        return false
+    end
+
+    if vim.fn.executable(kind) ~= 1 then
+        vim.notify(kind .. " is not installed or not on PATH", vim.log.levels.ERROR)
+        return false
+    end
+
+    return true
+end
+
 local function registry_path()
     local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "eltoto")
     vim.fn.mkdir(dir, "p")
@@ -375,13 +389,7 @@ local function spawn(entry, resume)
 end
 
 function M.open(kind)
-    if not M.commands[kind] then
-        vim.notify("Unknown AI harness: " .. tostring(kind), vim.log.levels.ERROR)
-        return
-    end
-
-    if vim.fn.executable(kind) ~= 1 then
-        vim.notify(kind .. " is not installed or not on PATH", vim.log.levels.ERROR)
+    if not M.ensure_available(kind) then
         return
     end
 

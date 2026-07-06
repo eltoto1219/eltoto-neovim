@@ -394,6 +394,10 @@ local function offer_agent(bufnr, path)
         end
 
         local kind = kinds[index]
+        if not ai_sessions.ensure_available(kind) then
+            focus_terminal()
+            return
+        end
         ai_sessions.prepare_workspace(kind, path)
         vim.api.nvim_chan_send(vim.bo[bufnr].channel, ai_sessions.shell_command(kind) .. "\r")
         focus_terminal()
