@@ -336,14 +336,29 @@ end
 -- unlisted buffer. Those leftovers make later renames fail with "buffer name
 -- already in use", so terminals get stuck on stale T:n names after closes.
 local function wipe_unlisted_name_holder(name, keep_bufnr)
+    local absolute_name = vim.fn.fnamemodify(name, ":p")
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        if buf ~= keep_bufnr and vim.fn.buflisted(buf) == 0 then
+        if buf ~= keep_bufnr and vim.b[buf].eltoto_terminal_name_holder then
             local bufname = vim.api.nvim_buf_get_name(buf)
-            if bufname == name or vim.fs.basename(bufname) == name then
+            if bufname == name or bufname == absolute_name then
                 pcall(vim.api.nvim_buf_delete, buf, { force = false })
             end
         end
     end
+end
+
+local function buffer_name_in_use(name, keep_bufnr)
+    local absolute_name = vim.fn.fnamemodify(name, ":p")
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if buf ~= keep_bufnr then
+            local bufname = vim.api.nvim_buf_get_name(buf)
+            if bufname == name or bufname == absolute_name then
+                return true
+            end
+        end
+    end
+
+    return false
 end
 
 function M.refresh_names()
@@ -353,10 +368,26 @@ function M.refresh_names()
 
         if vim.fs.basename(current) ~= desired then
             wipe_unlisted_name_holder(desired, bufinfo.bufnr)
+            if buffer_name_in_use(desired, bufinfo.bufnr) then
+                goto continue
+            end
+            local existing_buffers = {}
+            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                existing_buffers[buf] = true
+            end
             if pcall(vim.api.nvim_buf_set_name, bufinfo.bufnr, desired) then
+                for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                    if not existing_buffers[buf]
+                        and vim.fn.buflisted(buf) == 0
+                        and vim.api.nvim_buf_get_name(buf) == current
+                    then
+                        vim.b[buf].eltoto_terminal_name_holder = true
+                    end
+                end
                 wipe_unlisted_name_holder(current, bufinfo.bufnr)
             end
         end
+        ::continue::
     end
 end
 

@@ -292,13 +292,10 @@ function M.quit_current_or_window()
     end
 
     if (current_is_term and #real == 0) or (current_is_last_real and #terms > 0) then
-        -- An AI harness buffer with other terminals open just closes and
-        -- switches (its session stays cached for restore); as the last
-        -- buffer of any kind it quits nvim like everything else.
-        local ai_with_other_terms = current_is_term
-            and vim.b[current].eltoto_ai_kind ~= nil
-            and #terms > 1
-        if not ai_with_other_terms then
+        -- A terminal with other terminals open just closes and switches; as
+        -- the last buffer of any kind it quits nvim like everything else.
+        local terminal_with_other_terms = current_is_term and #terms > 1
+        if not terminal_with_other_terms then
             vim.cmd.qa({ bang = true })
             return
         end
