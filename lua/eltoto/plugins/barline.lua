@@ -215,22 +215,30 @@ return {
             end,
         })
 
-        -- Watch .git/HEAD so the branch component stays current when branches
-        -- are created or switched inside a terminal buffer.
         local head_watchers = {}
-        local function watch_git_head()
-            local git_dir = vim.fn.FugitiveGitDir()
+        local function watch_git_head(event)
+            local treehouse = require("eltoto.treehouse")
+            local workspace_path = treehouse.current_buf_workspace_path(event.buf)
+            local git_dir = workspace_path
+                and vim.fn.FugitiveExtractGitDir(workspace_path .. "/.")
+                or vim.fn.FugitiveGitDir()
             if not git_dir or git_dir == "" then return end
-            local head_file = git_dir .. "/HEAD"
-            if head_watchers[head_file] then return end
+            if head_watchers[git_dir] then return end
+
             local watcher = vim.uv.new_fs_event()
             if not watcher then return end
-            head_watchers[head_file] = watcher
-            watcher:start(head_file, {}, vim.schedule_wrap(function()
-                vim.fn.FugitiveDetect(vim.fn.getcwd())
-                require("eltoto.treehouse").refresh_all_git_caches()
+
+            local started = watcher:start(git_dir, {}, vim.schedule_wrap(function(err, filename)
+                if err or (filename and filename ~= "HEAD") then return end
+                vim.fn.FugitiveDidChange(0)
+                treehouse.refresh_all_git_caches()
                 require("lualine").refresh({ place = { "statusline" } })
             end))
+            if started then
+                head_watchers[git_dir] = watcher
+            else
+                watcher:close()
+            end
         end
 
         vim.api.nvim_create_autocmd("BufEnter", {

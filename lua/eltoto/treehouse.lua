@@ -716,6 +716,11 @@ function M.current_buf_branch()
     return cached and cached.branch ~= "?" and cached.branch or nil
 end
 
+function M.current_buf_workspace_path(bufnr)
+    local display_name = buffer_session(bufnr or vim.api.nvim_get_current_buf())
+    return display_name and workspace_paths[display_name] or nil
+end
+
 -- statusline component: call from lualine or raw statusline
 -- returns "" when not in a treehouse buffer so it takes no space
 function M.statusline()
