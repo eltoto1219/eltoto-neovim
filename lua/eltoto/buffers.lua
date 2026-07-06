@@ -104,6 +104,31 @@ function M.real_edit_buffers()
     return real
 end
 
+-- Nearest AI terminal buffer to `exclude` (by adjacency in bufnr order),
+-- or any AI buf, or nil. Used by TermClose to prefer AI-to-AI navigation.
+function M.nearest_ai_buf(exclude)
+    local all_terms = M.terminal_buffers()
+    local pos = nil
+    for i, bufnr in ipairs(all_terms) do
+        if bufnr == exclude then
+            pos = i
+            break
+        end
+    end
+    for _, i in ipairs(pos and { pos - 1, pos + 1 } or {}) do
+        local bufnr = all_terms[i]
+        if bufnr and vim.b[bufnr].eltoto_ai_kind ~= nil then
+            return bufnr
+        end
+    end
+    for _, bufnr in ipairs(all_terms) do
+        if bufnr ~= exclude and vim.b[bufnr].eltoto_ai_kind ~= nil then
+            return bufnr
+        end
+    end
+    return nil
+end
+
 function M.terminal_buffers()
     local terms = {}
 
@@ -292,10 +317,18 @@ function M.quit_current_or_window()
     end
 
     if (current_is_term and #real == 0) or (current_is_last_real and #terms > 0) then
-        -- A terminal with other terminals open just closes and switches; as
-        -- the last buffer of any kind it quits nvim like everything else.
-        local terminal_with_other_terms = current_is_term and #terms > 1
-        if not terminal_with_other_terms then
+        -- Quit only when truly the last buffer. AI sessions are in `terms` but
+        -- an explicit check guards against listing edge cases.
+        local has_other = #terms > 1
+        if not has_other then
+            for _, bufnr in ipairs(terms) do
+                if bufnr ~= current and vim.b[bufnr].eltoto_ai_kind ~= nil then
+                    has_other = true
+                    break
+                end
+            end
+        end
+        if current_is_term and not has_other then
             vim.cmd.qa({ bang = true })
             return
         end

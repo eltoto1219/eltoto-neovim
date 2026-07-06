@@ -684,10 +684,23 @@ function M.setup()
                             end
                         end, 50)
                     end
-                elseif vim.api.nvim_get_current_buf() == event.buf then
-                    require("eltoto.buffers").quit_current_or_window()
                 else
-                    pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
+                    -- Prefer an adjacent AI buffer; handles both the normal case and
+                    -- the case where nvim auto-switched away before this callback ran.
+                    local bufmod = require("eltoto.buffers")
+                    local ai_target = bufmod.nearest_ai_buf(event.buf)
+                    if ai_target then
+                        local cur = vim.api.nvim_get_current_buf()
+                        if cur == event.buf or vim.b[cur].eltoto_ai_kind == nil then
+                            pcall(vim.api.nvim_set_current_buf, ai_target)
+                            vim.cmd.startinsert()
+                        end
+                        pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
+                    elseif vim.api.nvim_get_current_buf() == event.buf then
+                        bufmod.quit_current_or_window()
+                    else
+                        pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
+                    end
                 end
             end)
         end,
