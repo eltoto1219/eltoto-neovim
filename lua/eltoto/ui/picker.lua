@@ -1,11 +1,14 @@
 local M = {}
 
--- Centered floating list picker: j/k/<Down>/<Up> move (wrapping), <CR>
--- selects, q/<Esc> cancel. Calls on_choice with the selected index only.
-function M.select(prompt, labels, on_choice)
+-- Centered floating list picker: leaves Insert mode; j/k/<Down>/<Up> move
+-- (wrapping), <CR> selects, and q/<Esc> cancel. Calls on_choice with the
+-- selected index, or the optional on_cancel callback after cancellation.
+function M.select(prompt, labels, on_choice, on_cancel)
     if #labels == 0 then
         return
     end
+
+    vim.cmd.stopinsert()
 
     local width = math.max(40, math.min(60, vim.o.columns - 8))
     local height = math.min(#labels + 2, math.max(4, vim.o.lines - 8))
@@ -44,6 +47,13 @@ function M.select(prompt, labels, on_choice)
         end
     end
 
+    local function cancel_picker()
+        close_picker()
+        if on_cancel then
+            on_cancel()
+        end
+    end
+
     local function move(delta)
         return function()
             local line = vim.api.nvim_win_get_cursor(winid)[1]
@@ -63,8 +73,8 @@ function M.select(prompt, labels, on_choice)
     vim.keymap.set("n", "<Down>", move(1), opts)
     vim.keymap.set("n", "<Up>", move(-1), opts)
     vim.keymap.set("n", "<CR>", choose_current, opts)
-    vim.keymap.set("n", "q", close_picker, opts)
-    vim.keymap.set("n", "<Esc>", close_picker, opts)
+    vim.keymap.set("n", "q", cancel_picker, opts)
+    vim.keymap.set("n", "<Esc>", cancel_picker, opts)
 
     vim.api.nvim_win_set_cursor(winid, { 1, 0 })
 end

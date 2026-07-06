@@ -1,6 +1,7 @@
 local M = {}
 
 local process_backend = require("eltoto.process_backend")
+local ai_sessions = require("eltoto.ai_sessions")
 local terminal = require("eltoto.terminal")
 local ui_input = require("eltoto.ui.input")
 local ui_picker = require("eltoto.ui.picker")
@@ -361,13 +362,55 @@ local function open_session(display_name, path, create)
     terminal.configure_persistent_buffer(bufnr)
 
     refresh_git_cache(display_name)
-    return true
+    return bufnr
+end
+
+-- Offer to start an agent in a freshly acquired workspace. Esc/q keeps the
+-- plain shell. Never offered on reattach: the shpool session keeps whatever
+-- was running.
+local function offer_agent(bufnr, path)
+    local kinds = { "claude", "codex" }
+
+    local function focus_terminal()
+        if not terminal.is_terminal(bufnr) then
+            return
+        end
+
+        local winid = vim.fn.bufwinid(bufnr)
+        if winid ~= -1 then
+            pcall(vim.api.nvim_set_current_win, winid)
+        else
+            pcall(vim.api.nvim_set_current_buf, bufnr)
+        end
+
+        if vim.api.nvim_get_current_buf() == bufnr then
+            vim.cmd.startinsert()
+        end
+    end
+
+    ui_picker.select("Workspace agent (Esc: plain shell):", kinds, function(index)
+        if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].channel == 0 then
+            return
+        end
+
+        local kind = kinds[index]
+        if not ai_sessions.ensure_available(kind) then
+            focus_terminal()
+            return
+        end
+        ai_sessions.prepare_workspace(kind, path)
+        vim.api.nvim_chan_send(vim.bo[bufnr].channel, ai_sessions.shell_command(kind) .. "\r")
+        focus_terminal()
+    end, focus_terminal)
 end
 
 local function finish_acquisition(display_name, path)
     local opened = open_session(display_name, path, true)
     reserved_sessions[display_name] = nil
-    if opened then return end
+    if opened then
+        offer_agent(opened, path)
+        return
+    end
 
     vim.system({ "treehouse", "return", "--force", path }, { text = true }, function(result)
         if result.code == 0 then return end

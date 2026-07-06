@@ -36,14 +36,17 @@ M.commands = {
         -- claude's fullscreen TUI lives on the alternate screen, which has no
         -- scrollback; NO_FLICKER=0 forces inline rendering so the transcript
         -- accumulates in the terminal buffer.
+        local argv = { "env", "CLAUDE_CODE_NO_FLICKER=0", "claude" }
         if resume then
-            return command({ "env", "CLAUDE_CODE_NO_FLICKER=0", "claude", "--resume", entry.id }, claude_args)
+            vim.list_extend(argv, { "--resume", entry.id })
+        elseif entry and entry.id then
+            vim.list_extend(argv, { "--session-id", entry.id })
         end
-        return command({ "env", "CLAUDE_CODE_NO_FLICKER=0", "claude", "--session-id", entry.id }, claude_args)
+        return command(argv, claude_args)
     end,
     codex = function(entry, resume)
         if resume then
-            if entry.id then
+            if entry and entry.id then
                 return command({ "codex", "resume", entry.id }, codex_args)
             end
             return command({ "codex", "resume", "--last" }, codex_args)
@@ -51,6 +54,30 @@ M.commands = {
         return command({ "codex" }, codex_args)
     end,
 }
+
+function M.shell_command(kind)
+    local builder = M.commands[kind]
+    if not builder then
+        return nil
+    end
+
+    local escaped = vim.tbl_map(vim.fn.shellescape, builder(nil, false))
+    return table.concat(escaped, " ")
+end
+
+function M.ensure_available(kind)
+    if not M.commands[kind] then
+        vim.notify("Unknown AI harness: " .. tostring(kind), vim.log.levels.ERROR)
+        return false
+    end
+
+    if vim.fn.executable(kind) ~= 1 then
+        vim.notify(kind .. " is not installed or not on PATH", vim.log.levels.ERROR)
+        return false
+    end
+
+    return true
+end
 
 local function registry_path()
     local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "eltoto")
@@ -300,32 +327,6 @@ local function watch_codex_id(bufnr, key, spawn_time)
     vim.defer_fn(poll, 1000)
 end
 
--- Lines where the user typed a prompt: ❯ (claude), › (codex), or a plain >.
--- No semantic markers exist in these transcripts (the TUIs don't emit OSC 133
--- prompt marks), so a pattern over the rendered text is the mechanism.
-M.prompt_pattern = [[\v^\s*[❯›>]\s]]
-
-local function prompt_jump(direction)
-    return function()
-        if vim.fn.search(M.prompt_pattern, direction < 0 and "bW" or "W") ~= 0 then
-            vim.cmd("normal! zz")
-        end
-    end
-end
-
-local function set_prompt_jump_keymaps(bufnr)
-    vim.keymap.set("n", "[a", prompt_jump(-1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to previous prompt",
-    })
-    vim.keymap.set("n", "]a", prompt_jump(1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to next prompt",
-    })
-end
-
 -- claude has no setting to skip its "do you trust this workspace?" dialog
 -- (verified against docs); pre-marking the cwd as trusted in its state file
 -- before launch is the only way. Small race if another claude instance
@@ -352,10 +353,14 @@ local function trust_claude_workspace(cwd)
     vim.fn.writefile({ vim.json.encode(state) }, path)
 end
 
-local function spawn(entry, resume)
-    if entry.kind == "claude" then
-        trust_claude_workspace(entry.cwd)
+function M.prepare_workspace(kind, cwd)
+    if kind == "claude" then
+        trust_claude_workspace(cwd)
     end
+end
+
+local function spawn(entry, resume)
+    M.prepare_workspace(entry.kind, entry.cwd)
 
     local command = M.commands[entry.kind](entry, resume)
     local bufnr = terminal.open_command(command, entry_label(entry), { cwd = entry.cwd, ai_kind = entry.kind })
@@ -363,7 +368,7 @@ local function spawn(entry, resume)
         return nil
     end
 
-    set_prompt_jump_keymaps(bufnr)
+    terminal.set_prompt_jump_keymaps(bufnr)
 
     entry.last_used = os.time()
     entries[entry.key] = entry
@@ -384,13 +389,7 @@ local function spawn(entry, resume)
 end
 
 function M.open(kind)
-    if not M.commands[kind] then
-        vim.notify("Unknown AI harness: " .. tostring(kind), vim.log.levels.ERROR)
-        return
-    end
-
-    if vim.fn.executable(kind) ~= 1 then
-        vim.notify(kind .. " is not installed or not on PATH", vim.log.levels.ERROR)
+    if not M.ensure_available(kind) then
         return
     end
 

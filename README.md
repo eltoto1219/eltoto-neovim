@@ -203,6 +203,8 @@ The Treehouse integration is a launcher and visibility layer over Treehouse's re
 - `<leader>fs` shows the full `treehouse status` output, including workspace paths.
 - `<leader>fr` previews commits and working-tree changes, then returns and resets the workspace only after `r` confirms it.
 
+After a successful acquisition, a picker offers to start Claude or Codex in the workspace; press `q` or `Esc` to keep the plain shell. Selecting an agent that is not installed reports the problem and also leaves the shell active. A selected agent runs inside the workspace's `shpool` session with the same always-on CLI flags as a regular AI session, including Claude's `--dangerously-skip-permissions` or Codex's approval, sandbox, and hook-trust bypasses. It stays out of the AI session registry because `shpool` already provides its persistence.
+
 Every acquired workspace uses a durable Treehouse lease and a persistent `shpool` session named `th:<task>`. It appears as `P:th:<task>` in the persistent process picker and survives terminal-buffer closes and Neovim restarts. The statusline shows the task, branch, and `*` when the workspace is dirty.
 
 Workspace paths are cached only for the current Neovim process. After restarting Neovim, use `<leader>fs` to recover a path; existing Treehouse sessions can still be reopened with `<leader>fw`, but returning a workspace requires its path to have been cached in the current process.
@@ -362,7 +364,7 @@ AI Harness Sessions
 - `<leader>A`: pick Claude or Codex and open a new AI session buffer
 - `<leader>d`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
 - `AI buffers`: get their own tabline group, separate from plain terminal buffers
-- `AI [a / ]a`: jump to the previous / next prompt line in the transcript (❯, ›, or >)
+- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one returns to the live input
 - `:Claude`: open a new Claude Code session in a terminal buffer
 - `:Codex`: open a new Codex session in a terminal buffer
 - `:AIRestore`: restore the cached AI harness sessions born in the current directory
@@ -423,8 +425,9 @@ Treehouse Workspaces
 - Workspace sessions are backed by shpool and appear in the persistent process picker (<leader>pp) as P:th:<name>.
 - Workspace paths are tracked in memory; use <leader>fs to see paths if Neovim was restarted.
 - The statusline component shows [TH: <task> | <branch> *] when inside a treehouse buffer.
-- `<leader>fa`: acquire a disposable treehouse workspace and open a persistent session inside it
-- `<leader>fl`: acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it
+- After acquisition, pick claude or codex to run it inside the shpool session with the standard unsafe flags; q/Esc or an unavailable agent keeps a plain shell. Workspace agents are not added to the AI session registry.
+- `<leader>fa`: acquire a disposable treehouse workspace and open a persistent session inside it; a popup offers to start claude or codex there
+- `<leader>fl`: acquire a leased treehouse workspace (prompts for task name) and open a persistent session inside it, with the same agent popup
 - `<leader>fs`: show treehouse status in a float (all pool workspaces, lease holders, paths)
 - `<leader>fw`: pick from active treehouse sessions; shows branch and dirty indicator
 - `<leader>fr`: return the current (or selected) leased workspace; shows git status and requires confirmation
