@@ -32,7 +32,7 @@ function M.serve_command()
     return cmd
 end
 
--- One transcript line comes back per wav path sent; pending callbacks are
+-- One JSON response line comes back per wav path sent; pending callbacks are
 -- resolved in send order.
 local server_job = nil
 local pending = {}
@@ -52,7 +52,12 @@ local function ensure_server()
                 local callback = table.remove(pending, 1)
                 if callback then
                     vim.schedule(function()
-                        callback(line)
+                        local ok, response = pcall(vim.json.decode, line)
+                        if ok and type(response) == "table" then
+                            callback(response)
+                        else
+                            callback({ error = "invalid response from transcription server" })
+                        end
                     end)
                 end
             end
@@ -111,15 +116,20 @@ local function transcribe(path, tgt)
         return
     end
 
-    table.insert(pending, function(line)
+    table.insert(pending, function(response)
         vim.fn.delete(path)
 
-        if line == nil then
+        if response == nil then
             vim.notify("Transcription failed (server exited)", vim.log.levels.ERROR)
             return
         end
 
-        local text = vim.trim(line)
+        if response.error then
+            vim.notify("Transcription failed: " .. response.error, vim.log.levels.ERROR)
+            return
+        end
+
+        local text = vim.trim(response.text or "")
         if text == "" then
             vim.notify("No speech detected", vim.log.levels.INFO)
             return

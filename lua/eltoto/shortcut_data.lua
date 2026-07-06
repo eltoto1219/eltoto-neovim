@@ -32,7 +32,7 @@ M.sections = {
             { lhs = "<leader>A", desc = "pick Claude or Codex and open a new AI session buffer" },
             { lhs = "<leader>d", desc = "open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection" },
             { lhs = "AI buffers", desc = "get their own tabline group, separate from plain terminal buffers" },
-            { lhs = "[a / ]a", desc = "in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one returns to the live input" },
+            { lhs = "[a / ]a", desc = "in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode" },
             { lhs = ":Claude", desc = "open a new Claude Code session in a terminal buffer" },
             { lhs = ":Codex", desc = "open a new Codex session in a terminal buffer" },
             { lhs = ":AIRestore", desc = "restore the cached AI harness sessions born in the current directory" },
@@ -41,7 +41,7 @@ M.sections = {
     {
         title = "Voice Dictation",
         notes = {
-            "Recording uses arecord; transcription runs locally with faster-whisper (CPU, 'base' model) from the repo venv.",
+            "Recording uses arecord; transcription runs locally with faster-whisper from the repo venv, using the 'medium' model on GPU or 'base' on CPU.",
             "The target is captured when recording starts: terminal buffers (AI prompts, shells) receive the text on their pty input, file buffers get it inserted at the cursor.",
             "The first use downloads the model to ~/.cache/huggingface unless scripts/setup.sh already pre-downloaded it.",
         },

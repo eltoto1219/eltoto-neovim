@@ -364,13 +364,13 @@ AI Harness Sessions
 - `<leader>A`: pick Claude or Codex and open a new AI session buffer
 - `<leader>d`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
 - `AI buffers`: get their own tabline group, separate from plain terminal buffers
-- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one returns to the live input
+- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode
 - `:Claude`: open a new Claude Code session in a terminal buffer
 - `:Codex`: open a new Codex session in a terminal buffer
 - `:AIRestore`: restore the cached AI harness sessions born in the current directory
 
 Voice Dictation
-- Recording uses arecord; transcription runs locally with faster-whisper (CPU, 'base' model) from the repo venv.
+- Recording uses arecord; transcription runs locally with faster-whisper from the repo venv, using the 'medium' model on GPU or 'base' on CPU.
 - The target is captured when recording starts: terminal buffers (AI prompts, shells) receive the text on their pty input, file buffers get it inserted at the cursor.
 - The first use downloads the model to ~/.cache/huggingface unless scripts/setup.sh already pre-downloaded it.
 - `<leader>v`: start voice recording; press again to stop, transcribe, and inject the text
