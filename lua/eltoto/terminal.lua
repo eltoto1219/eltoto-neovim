@@ -378,9 +378,8 @@ local function prompt_jump(direction)
         elseif direction > 0 then
             -- Past the last transcript prompt: the live input box at the
             -- bottom doesn't match the pattern (it's drawn inside a border),
-            -- so snap to it and resume typing.
+            -- so snap to it while remaining in normal mode.
             vim.cmd("normal! G")
-            vim.cmd.startinsert()
         end
     end
 end
@@ -394,7 +393,7 @@ function M.set_prompt_jump_keymaps(bufnr)
     vim.keymap.set("n", "]a", prompt_jump(1), {
         buffer = bufnr,
         silent = true,
-        desc = "Jump to next prompt, or back to the live input",
+        desc = "Jump to next prompt, or to the live input in normal mode",
     })
 end
 

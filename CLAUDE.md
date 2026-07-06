@@ -17,7 +17,7 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 - `lua/eltoto/terminal.lua`: terminal buffer workflow (toggle, cycle, labels T:n, custom labels).
 - `lua/eltoto/processes.lua` + `process_backend.lua`: persistent terminals backed by shpool (`shpool attach -f eltoto-process-<name>`); labels are `P:<name>`; scrollback is native in the nvim buffer, shpool replays the last 10000 lines on reattach (`~/.config/shpool/config.toml`).
 - `lua/eltoto/ai_sessions.lua`: claude/codex sessions in terminal buffers; registry in stdpath("state")/eltoto/ai_sessions.json; always-on CLI flags live in `claude_args`/`codex_args` there (shell aliases never apply to termopen).
-- `lua/eltoto/dictation.lua`: `<leader>v` voice dictation (arecord + faster-whisper from the repo `.venv`, `scripts/transcribe.py`).
+- `lua/eltoto/dictation.lua`: `<leader>v` voice dictation (arecord + faster-whisper from the repo `.venv`); transcription runs in a persistent `scripts/transcribe.py --serve` job (one wav path in and one JSON response out per line) so the model loads once per nvim session; model auto-picks medium on GPU / base on CPU (`M.model = nil` = auto), and GPU failures switch that server process to CPU.
 - `lua/eltoto/ui/tabline.lua`: context-sensitive tabline with three groups: files, plain terminals, AI buffers.
 - `lua/eltoto/ui/picker.lua`: shared centered floating list picker; reuse it for any new picker.
 
@@ -28,7 +28,7 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 - `nvim --headless -l script.lua` skips init.lua: modules load but no autocmds exist; call `buffers/terminal/ai_sessions .setup()` explicitly in test scripts, and use `vim.wait`, not `defer_fn`.
 - Stopping a recording job needs SIGTERM via `vim.uv.kill` (jobstop sends SIGHUP and arecord leaves a broken wav header).
 - shpool spawns login shells; `.bashrc` sourcing for login shells is handled by `ensure_login_shell_sources_bashrc` in setup.sh.
-- The live agent input box is drawn inside a border and never matches `terminal.M.prompt_pattern`; `]a` handles it with an explicit jump-to-bottom fallback.
+- The live agent input box is drawn inside a border and never matches `terminal.M.prompt_pattern`; `]a` handles it with an explicit jump-to-bottom fallback that stays in normal mode.
 - In `-l` test scripts `startinsert` stays pending until the script ends, so terminal-input mode cannot be asserted; tests also must never send a bare `claude`/`codex` to a shell (it launches a real session whose TUI repaints the buffer).
 - To repro real keybind flows (t-mode maps, mode transitions): run `nvim --listen <sock>` inside tmux, drive keys with `tmux send-keys`, assert via `nvim --server <sock> --remote-expr`; fake an AI buffer with `terminal.open_command('<script>', 'x', {ai_kind='claude'})`. `:messages`/`execute("messages")` is empty under noice, useless for debugging.
 - Terminal/AI toggles must always land somewhere: with no file ever opened, `get_last_edit_buf()` is nil - fall back via `buffers.get_edit_return_buf()` (else the toggle silently no-ops after the t-mode map already left insert mode).
