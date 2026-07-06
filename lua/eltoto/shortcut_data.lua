@@ -42,6 +42,7 @@ M.sections = {
         title = "Voice Dictation",
         notes = {
             "Recording uses arecord; transcription runs locally with faster-whisper from the repo venv, using the 'medium' model on GPU or 'base' on CPU.",
+            "A persistent transcription server loads the model once per Neovim session; GPU failures fall back to CPU for the rest of that server process.",
             "The target is captured when recording starts: terminal buffers (AI prompts, shells) receive the text on their pty input, file buffers get it inserted at the cursor.",
             "The first use downloads the model to ~/.cache/huggingface unless scripts/setup.sh already pre-downloaded it.",
         },

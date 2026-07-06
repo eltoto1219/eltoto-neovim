@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Transcribe wav files with faster-whisper and print the text to stdout.
+"""Transcribe wav files with faster-whisper in one-shot or server mode.
 
 Usage: transcribe.py <file.wav> [model]     one-shot
        transcribe.py --serve [model]        read wav paths from stdin, one
                                             JSON response line per path
 Default model: "medium" on GPU, "base" on CPU.
+GPU initialization or transcription failures fall back to CPU; server mode
+keeps the resulting model loaded for subsequent requests.
 Models download to ~/.cache/huggingface on first use.
 """
 import json

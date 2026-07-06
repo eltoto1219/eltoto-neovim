@@ -13,8 +13,9 @@ local recording_job = nil
 -- nil = script default (medium on GPU, base on CPU); set to force a model.
 M.model = nil
 
--- Overridable seams: swap the recorder per machine, or point transcription
--- at something else (e.g. an API-based transcriber) without touching logic.
+-- Overridable seams: swap the recorder per machine, or point serve_command at
+-- another long-running transcriber that accepts newline-delimited wav paths
+-- and returns one newline-delimited JSON response for each path.
 function M.record_command(path)
     return { "arecord", "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", path }
 end
