@@ -361,11 +361,11 @@ AI Harness Sessions
 - Tabs show Unnamed:<n> until the harness titles the session, then follow the session name live.
 - Quitting the harness process (Ctrl-C at its prompt) closes the buffer and drops the session from the cache; closing the buffer with qq keeps the session cached and restorable. Ctrl-C mid-turn just interrupts the harness.
 - Running plain vim with no file arguments restores the cached sessions born in the current directory with the most recent focused, or starts a fresh Claude session there if none exist.
-- `<leader>a`: toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
-- `<leader>A`: pick Claude or Codex and open a new AI session buffer
-- `<leader>d`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
+- `<leader>m`: toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
+- `<leader>M`: pick Claude or Codex and open a new AI session buffer
+- `<leader>n`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
 - `AI buffers`: get their own tabline group, separate from plain terminal buffers
-- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode
+- `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode; also works from terminal input mode
 - `:Claude`: open a new Claude Code session in a terminal buffer
 - `:Codex`: open a new Codex session in a terminal buffer
 - `:AIRestore`: restore the cached AI harness sessions born in the current directory
@@ -383,6 +383,7 @@ AI
 - `insert <C-s>`: accept the current Copilot inline suggestion
 
 Files and Search
+- <leader>pf, <leader>ps, <leader>pg, <leader>pv, <leader>b, and <leader>? also work from terminal input mode (including AI buffers).
 - `<leader>pf`: Telescope file picker
 - `<leader>ps`: Telescope git-tracked file picker
 - `<leader>pg`: grep for an entered string with Telescope
@@ -414,10 +415,12 @@ Persistent Processes
 - Closing the attached terminal buffer detaches from the process; it does not kill the shpool session.
 - Scrollback is native: shpool passes raw output through, so the terminal buffer holds the history and all normal vim motions, search, visual mode, and yank work directly.
 - On reattach, shpool replays the last 10000 lines of session output into the buffer (session_restore_mode in ~/.config/shpool/config.toml).
+- All <leader>p* maps below also work from terminal input mode (including AI buffers).
 - `persistent buffers`: are labeled P:<name> in the tabline, and :b P:<name> jumps to one directly
 - `<leader>pp`: open the persistent terminal picker and attach to a selected process
 - `<leader>pn`: create a new persistent terminal process
 - `<leader>pa`: attach the last persistent terminal process
+- `<leader>pA`: attach all persistent terminal processes created in the current working directory
 - `<leader>pk`: kill the current persistent terminal process, or select one to kill
 - `<leader>pK`: kill all persistent terminal processes at once
 - `persistent <Esc>`: leave terminal input mode and navigate the scrollback like a normal buffer
@@ -485,10 +488,6 @@ Git and Project Marks
 - `:Git`: open Fugitive git status
 - `]h`: jump to the next git hunk
 - `[h`: jump to the previous git hunk
-- `<leader>gs`: stage the current git hunk
-- `<leader>gr`: reset the current git hunk
-- `<leader>gp`: preview the current git hunk
-- `<leader>gb`: show Git blame for the current line
 - `<leader>m`: add current file to Harpoon
 - `<C-e>`: toggle Harpoon quick menu
 - `<C-h>`: jump to Harpoon file 1

@@ -104,7 +104,13 @@ local function load_registry()
 end
 
 local function save_registry()
-    local list = vim.tbl_values(entries)
+    local list = {}
+    for _, entry in pairs(entries) do
+        -- prune entries that were never used so stale IDs don't pile up
+        if entry.title and entry.title ~= "" then
+            list[#list + 1] = entry
+        end
+    end
     table.sort(list, function(a, b)
         return (a.last_used or 0) > (b.last_used or 0)
     end)
@@ -491,7 +497,12 @@ local function restorable_entries(scope_cwd)
     local scope = scope_cwd and vim.fs.normalize(scope_cwd) or nil
     local list = {}
     for key, entry in pairs(entries) do
-        if not entry_is_alive(key) and (not scope or vim.fs.normalize(entry.cwd or "") == scope) then
+        -- skip entries that were never used (no title = session ID was pre-assigned
+        -- but no message was ever sent, so claude never created the session file)
+        if not entry_is_alive(key)
+            and (entry.title and entry.title ~= "")
+            and (not scope or vim.fs.normalize(entry.cwd or "") == scope)
+        then
             list[#list + 1] = entry
         end
     end
@@ -642,8 +653,32 @@ function M.setup()
                     return
                 end
 
+                -- ponytail: if this was an autostart resume that died within 5s,
+                -- the session ID is stale; open fresh rather than quitting nvim.
+                local was_failed_resume = event.buf == M._autostart_buf
+                    and M._autostart_spawn_time ~= nil
+                    and (os.time() - M._autostart_spawn_time) < 5
+                M._autostart_buf = nil
+                M._autostart_spawn_time = nil
+
                 forget_buffer(event.buf, true)
-                if vim.api.nvim_get_current_buf() == event.buf then
+
+                if was_failed_resume then
+                    pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
+                    if vim.fn.executable("claude") == 1 then
+                        vim.defer_fn(function()
+                            local bufnr = M.open("claude")
+                            if bufnr then
+                                vim.defer_fn(function()
+                                    if vim.api.nvim_buf_is_valid(bufnr) then
+                                        pcall(vim.api.nvim_set_current_buf, bufnr)
+                                        vim.cmd.startinsert()
+                                    end
+                                end, 400)
+                            end
+                        end, 50)
+                    end
+                elseif vim.api.nvim_get_current_buf() == event.buf then
                     require("eltoto.buffers").quit_current_or_window()
                 else
                     pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
@@ -692,6 +727,9 @@ function M.setup()
                 local bufnr, count = restore_cached(vim.fn.getcwd())
                 if count > 0 then
                     vim.notify(("Restored %d AI harness session(s)"):format(count))
+                    -- ponytail: record spawn time so TermClose can detect a failed resume
+                    M._autostart_buf = bufnr
+                    M._autostart_spawn_time = os.time()
                 elseif vim.fn.executable("claude") == 1 then
                     bufnr = M.open("claude")
                 end

@@ -201,6 +201,15 @@ local function plain_terminal_buffers()
     return terms
 end
 
+function M.focus(bufnr)
+    hide_tree_for_terminal()
+    if not safe_switch_buffer(bufnr) then
+        return false
+    end
+    enter_insert()
+    return true
+end
+
 function M.ensure()
     local terms = plain_terminal_buffers()
     local current = vim.api.nvim_get_current_buf()
@@ -385,16 +394,26 @@ local function prompt_jump(direction)
 end
 
 function M.set_prompt_jump_keymaps(bufnr)
-    vim.keymap.set("n", "[a", prompt_jump(-1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to previous prompt",
-    })
-    vim.keymap.set("n", "]a", prompt_jump(1), {
-        buffer = bufnr,
-        silent = true,
-        desc = "Jump to next prompt, or to the live input in normal mode",
-    })
+    local jumps = {
+        { "[a", -1, "Jump to previous prompt" },
+        { "]a", 1, "Jump to next prompt, or to the live input in normal mode" },
+    }
+    for _, jump in ipairs(jumps) do
+        local lhs, direction, desc = unpack(jump)
+        vim.keymap.set("n", lhs, prompt_jump(direction), {
+            buffer = bufnr,
+            silent = true,
+            desc = desc,
+        })
+        vim.keymap.set("t", lhs, function()
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+            vim.schedule(prompt_jump(direction))
+        end, {
+            buffer = bufnr,
+            silent = true,
+            desc = desc,
+        })
+    end
 end
 
 function M.configure_persistent_buffer(bufnr)
