@@ -16,6 +16,7 @@ M.sections = {
             { lhs = ":TerminalProcessKill",       desc = "kill a persistent terminal process" },
             { lhs = ":TerminalProcessKillAll",    desc = "kill all persistent terminal processes" },
             { lhs = ":TerminalProcessAttachLast", desc = "attach the last persistent terminal process" },
+            { lhs = ":TerminalProcessAttachAll",  desc = "attach all persistent terminal processes recorded for the current working directory" },
             { lhs = ":ShortcutsSync",             desc = "regenerate SHORTCUTS.txt and the README shortcuts section" },
         },
     },
@@ -26,6 +27,8 @@ M.sections = {
             "Tabs show Unnamed:<n> until the harness titles the session, then follow the session name live.",
             "Quitting the harness process (Ctrl-C at its prompt) closes the buffer and drops the session from the cache; closing the buffer with qq keeps the session cached and restorable. Ctrl-C mid-turn just interrupts the harness.",
             "Running plain vim with no file arguments restores the cached sessions born in the current directory with the most recent focused, or starts a fresh Claude session there if none exist.",
+            "If a cached session can no longer be resumed, it is removed and replaced with a fresh session of the same harness in the original working directory.",
+            "<leader>m, <leader>M, and <leader>n also work from terminal input mode (including AI buffers).",
         },
         entries = {
             { lhs = "<leader>m", desc = "toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open" },
@@ -93,6 +96,7 @@ M.sections = {
             { lhs = "terminal <leader>,", desc = "jump to the previous terminal buffer and stay in terminal input mode" },
             { lhs = "terminal <leader>1", desc = "jump to buffer 1 from a terminal" },
             { lhs = "terminal <leader>r", desc = "rename the current terminal buffer" },
+            { lhs = "terminal qa",        desc = "force quit the current window" },
             { lhs = "terminal qq",        desc = "close the current window if split, otherwise close the current terminal buffer or quit Neovim if no file buffers remain" },
             { lhs = "terminal jk",        desc = "leave terminal input mode" },
             { lhs = "terminal buffers",   desc = "default to T:1, T:2, T:3, ... and may be manually renamed" },
@@ -106,6 +110,7 @@ M.sections = {
             "Closing the attached terminal buffer detaches from the process; it does not kill the shpool session.",
             "Scrollback is native: shpool passes raw output through, so the terminal buffer holds the history and all normal vim motions, search, visual mode, and yank work directly.",
             "On reattach, shpool replays the last 10000 lines of session output into the buffer (session_restore_mode in ~/.config/shpool/config.toml).",
+            "The process picker shows each session's recorded working directory; attaching an already-open session focuses its existing buffer instead of opening a duplicate.",
             "All <leader>p* maps below also work from terminal input mode (including AI buffers).",
         },
         entries = {

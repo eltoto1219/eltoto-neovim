@@ -471,7 +471,7 @@ function M.setup()
             if event.event == "BufWipeout" or event.event == "BufDelete" then
                 custom_labels[event.buf] = nil
             elseif M.is_terminal(event.buf) then
-                -- AI harness buffers have their own toggle (<leader>A); keep
+                -- AI harness buffers have their own toggle (<leader>m); keep
                 -- <leader>t pointed at the last plain terminal.
                 if vim.b[event.buf].eltoto_ai_kind == nil then
                     last_terminal_bufnr = event.buf

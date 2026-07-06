@@ -460,7 +460,7 @@ local function focus_ai(bufnr)
     return ok
 end
 
--- <leader>A: like <leader>t but for AI buffers. From a non-AI buffer, jump to
+-- <leader>m: like <leader>t but for AI buffers. From a non-AI buffer, jump to
 -- the last AI buffer used (or offer to spawn one); from an AI buffer, jump
 -- back to wherever the toggle came from.
 function M.toggle()
@@ -487,7 +487,7 @@ function M.toggle()
     M.new_session()
 end
 
--- <leader>A: pick a harness and spawn a fresh AI session buffer.
+-- <leader>M: pick a harness and spawn a fresh AI session buffer.
 function M.new_session()
     local current = vim.api.nvim_get_current_buf()
     if not M.is_ai_buffer(current) then
@@ -536,7 +536,7 @@ local function restore_cached(scope_cwd)
     return focus, #list
 end
 
--- <leader>aa: picker over the open AI buffers (named as in the tabline) plus
+-- <leader>n: picker over the open AI buffers (named as in the tabline) plus
 -- cached sessions, which are resumed on selection.
 function M.pick()
     local live = live_ai_buffers()
