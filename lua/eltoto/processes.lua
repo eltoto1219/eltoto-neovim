@@ -63,12 +63,12 @@ local function save_cwd_map(map)
     vim.fn.writefile({ vim.json.encode(map) }, cwd_map_path())
 end
 
-local function record_session_cwd(name, overwrite)
+local function record_session_cwd(name, cwd, overwrite)
     local map = load_cwd_map()
     if map[name] and not overwrite then
         return
     end
-    map[name] = vim.fn.getcwd()
+    map[name] = cwd
     save_cwd_map(map)
 end
 
@@ -114,7 +114,9 @@ local function attach(item, start_dir, created)
     end
     terminal.configure_persistent_buffer(bufnr, item.name)
     save_last_session_name(item.name)
-    record_session_cwd(item.name, created)
+    if start_dir then
+        record_session_cwd(item.name, start_dir, created)
+    end
     return bufnr
 end
 
@@ -144,6 +146,13 @@ end
 
 function M.current_process_name(bufnr)
     return process_name(bufnr or vim.api.nvim_get_current_buf())
+end
+
+function M.register_session_cwd(name, cwd)
+    if type(name) ~= "string" or name == "" or type(cwd) ~= "string" or cwd == "" then
+        return
+    end
+    record_session_cwd(name, cwd, true)
 end
 
 function M.attach_last()
