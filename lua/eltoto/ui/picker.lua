@@ -7,6 +7,8 @@ function M.select(prompt, labels, on_choice, on_cancel)
         return
     end
 
+    vim.cmd.stopinsert()
+
     local width = math.max(40, math.min(60, vim.o.columns - 8))
     local height = math.min(#labels + 2, math.max(4, vim.o.lines - 8))
     local row = math.floor((vim.o.lines - height) / 2) - 1
