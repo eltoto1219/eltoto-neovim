@@ -120,7 +120,13 @@ return {
                 }
               },
               sections = {
-                lualine_a = {'mode', 'FugitiveHead'},
+                lualine_a = {'mode', {
+                    function()
+                        local branch = require("eltoto.treehouse").current_buf_branch()
+                        return branch or vim.fn.FugitiveHead()
+                    end,
+                    icon = "",
+                }},
                 lualine_b = {'diff'},
                 lualine_c = {'filename',
                             {
@@ -207,6 +213,37 @@ return {
             callback = function()
                 apply_lualine()
             end,
+        })
+
+        local head_watchers = {}
+        local function watch_git_head(event)
+            local treehouse = require("eltoto.treehouse")
+            local workspace_path = treehouse.current_buf_workspace_path(event.buf)
+            local git_dir = workspace_path
+                and vim.fn.FugitiveExtractGitDir(workspace_path .. "/.")
+                or vim.fn.FugitiveGitDir()
+            if not git_dir or git_dir == "" then return end
+            if head_watchers[git_dir] then return end
+
+            local watcher = vim.uv.new_fs_event()
+            if not watcher then return end
+
+            local started = watcher:start(git_dir, {}, vim.schedule_wrap(function(err, filename)
+                if err or (filename and filename ~= "HEAD") then return end
+                vim.fn.FugitiveDidChange(0)
+                treehouse.refresh_all_git_caches()
+                require("lualine").refresh({ place = { "statusline" } })
+            end))
+            if started then
+                head_watchers[git_dir] = watcher
+            else
+                watcher:close()
+            end
+        end
+
+        vim.api.nvim_create_autocmd("BufEnter", {
+            group = vim.api.nvim_create_augroup("EltotoBarlineGitWatch", { clear = true }),
+            callback = watch_git_head,
         })
     end
 

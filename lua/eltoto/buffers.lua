@@ -266,11 +266,11 @@ function M.quit_current_or_window()
         return nil
     end
 
-    local function previous_terminal_buffer()
-        for index, bufnr in ipairs(terms) do
+    local function previous_in(list)
+        for index, bufnr in ipairs(list) do
             if bufnr == current then
-                local previous = terms[index - 1]
-                local following = terms[index + 1]
+                local previous = list[index - 1]
+                local following = list[index + 1]
                 return previous or following
             end
         end
@@ -278,14 +278,24 @@ function M.quit_current_or_window()
         return nil
     end
 
+    local function previous_terminal_buffer()
+        -- Prefer a terminal of the same kind (AI vs plain) as the one closing.
+        local current_is_ai = vim.b[current].eltoto_ai_kind ~= nil
+        local same_kind = {}
+        for _, bufnr in ipairs(terms) do
+            if (vim.b[bufnr].eltoto_ai_kind ~= nil) == current_is_ai then
+                same_kind[#same_kind + 1] = bufnr
+            end
+        end
+
+        return previous_in(same_kind) or previous_in(terms)
+    end
+
     if (current_is_term and #real == 0) or (current_is_last_real and #terms > 0) then
-        -- An AI harness buffer with other terminals open just closes and
-        -- switches (its session stays cached for restore); as the last
-        -- buffer of any kind it quits nvim like everything else.
-        local ai_with_other_terms = current_is_term
-            and vim.b[current].eltoto_ai_kind ~= nil
-            and #terms > 1
-        if not ai_with_other_terms then
+        -- A terminal with other terminals open just closes and switches; as
+        -- the last buffer of any kind it quits nvim like everything else.
+        local terminal_with_other_terms = current_is_term and #terms > 1
+        if not terminal_with_other_terms then
             vim.cmd.qa({ bang = true })
             return
         end
