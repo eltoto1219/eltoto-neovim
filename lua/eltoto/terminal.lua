@@ -416,10 +416,12 @@ function M.set_prompt_jump_keymaps(bufnr)
     end
 end
 
-function M.configure_persistent_buffer(bufnr)
+function M.configure_persistent_buffer(bufnr, session_name)
     if not M.is_terminal(bufnr) then
         return
     end
+
+    vim.b[bufnr].eltoto_process_name = session_name
 
     -- shpool passes raw bytes through, so nvim's terminal emulator owns the
     -- history: native motions, search, visual mode, and yank work directly.
@@ -434,6 +436,26 @@ function M.configure_persistent_buffer(bufnr)
         nowait = true,
         desc = "Leave terminal input mode",
     })
+end
+
+function M.persistent_process_name(bufnr)
+    if not M.is_terminal(bufnr) then
+        return nil
+    end
+
+    local name = vim.b[bufnr].eltoto_process_name
+    return type(name) == "string" and name ~= "" and name or nil
+end
+
+function M.find_persistent_buffer(session_name)
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if M.persistent_process_name(bufnr) == session_name then
+            local job_id = vim.b[bufnr].terminal_job_id
+            if type(job_id) == "number" and vim.fn.jobwait({ job_id }, 0)[1] == -1 then
+                return bufnr
+            end
+        end
+    end
 end
 
 function M.setup()

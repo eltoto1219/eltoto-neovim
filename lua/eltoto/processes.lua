@@ -7,7 +7,6 @@ local ui_input = require("eltoto.ui.input")
 local ui_picker = require("eltoto.ui.picker")
 
 local last_session_name = nil
-local session_for_buf = {}
 
 local function last_session_path()
     local dir = vim.fs.joinpath(vim.fn.stdpath("state"), "eltoto")
@@ -64,11 +63,9 @@ local function save_cwd_map(map)
     vim.fn.writefile({ vim.json.encode(map) }, cwd_map_path())
 end
 
--- First attach wins: a session created elsewhere keeps its original cwd even
--- when later attached from another directory.
-local function record_session_cwd(name)
+local function record_session_cwd(name, overwrite)
     local map = load_cwd_map()
-    if map[name] then
+    if map[name] and not overwrite then
         return
     end
     map[name] = vim.fn.getcwd()
@@ -92,7 +89,11 @@ local function session_exists(name)
     return process_backend.session_exists(name)
 end
 
-local function attach(item, start_dir)
+local function process_name(bufnr)
+    return terminal.persistent_process_name(bufnr)
+end
+
+local function attach(item, start_dir, created)
     if not process_backend.available() then
         process_backend.notify_missing()
         return
@@ -100,22 +101,20 @@ local function attach(item, start_dir)
 
     -- Reuse an existing buffer for this session instead of attaching twice
     -- (a second shpool attach -f would steal the session from the first).
-    for bufnr, name in pairs(session_for_buf) do
-        if name == item.name and vim.api.nvim_buf_is_valid(bufnr) then
-            terminal.focus(bufnr)
-            save_last_session_name(item.name)
-            return bufnr
-        end
+    local existing = terminal.find_persistent_buffer(item.name)
+    if existing then
+        terminal.focus(existing)
+        save_last_session_name(item.name)
+        return existing
     end
 
     local bufnr = terminal.open_command(process_backend.attach_command(item.name, start_dir), "P:" .. item.name)
     if not bufnr then
         return
     end
-    terminal.configure_persistent_buffer(bufnr)
-    session_for_buf[bufnr] = item.name
+    terminal.configure_persistent_buffer(bufnr, item.name)
     save_last_session_name(item.name)
-    record_session_cwd(item.name)
+    record_session_cwd(item.name, created)
     return bufnr
 end
 
@@ -144,7 +143,7 @@ local function select_session(prompt, on_choice)
 end
 
 function M.current_process_name(bufnr)
-    return session_for_buf[bufnr or vim.api.nvim_get_current_buf()]
+    return process_name(bufnr or vim.api.nvim_get_current_buf())
 end
 
 function M.attach_last()
@@ -175,18 +174,11 @@ function M.attach_all_cwd()
     local cwd = vim.fn.getcwd()
     local map = load_cwd_map()
 
-    local already_open = {}
-    for bufnr, name in pairs(session_for_buf) do
-        if vim.api.nvim_buf_is_valid(bufnr) then
-            already_open[name] = true
-        end
-    end
-
     local matched, opened = 0, 0
     for _, item in ipairs(managed_sessions()) do
         if map[item.name] == cwd then
             matched = matched + 1
-            if not already_open[item.name] and attach(item) then
+            if not terminal.find_persistent_buffer(item.name) and attach(item) then
                 opened = opened + 1
             end
         end
@@ -246,9 +238,15 @@ function M.new()
             }, function(command_input)
             local startup_command = command_input and vim.trim(command_input) or ""
 
+            if session_exists(name) then
+                vim.notify("Persistent process '" .. name .. "' already exists", vim.log.levels.WARN)
+                attach({ session = process_backend.session_name(name), name = name })
+                return
+            end
+
             -- shpool creates missing sessions on attach; the startup command
             -- goes straight to the terminal's pty once the shell is up.
-            local bufnr = attach({ session = process_backend.session_name(name), name = name }, vim.fn.getcwd())
+            local bufnr = attach({ session = process_backend.session_name(name), name = name }, vim.fn.getcwd(), true)
 
             if startup_command ~= "" and bufnr then
                 vim.defer_fn(function()
@@ -339,9 +337,8 @@ function M.kill_all()
         pcall(vim.cmd.buffer, target)
     end
 
-    for bufnr, _ in pairs(session_for_buf) do
-        session_for_buf[bufnr] = nil
-        if vim.api.nvim_buf_is_valid(bufnr) then
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if process_name(bufnr) then
             pcall(vim.cmd.bwipeout, { args = { tostring(bufnr) }, bang = true })
         end
     end
@@ -373,13 +370,6 @@ function M.setup()
     })
     vim.api.nvim_create_user_command("TerminalProcessAttachAll", M.attach_all_cwd, {
         desc = "Attach all managed persistent terminal processes for the current working directory",
-    })
-
-    vim.api.nvim_create_autocmd({ "BufWipeout", "BufDelete" }, {
-        group = group,
-        callback = function(event)
-            session_for_buf[event.buf] = nil
-        end,
     })
 end
 

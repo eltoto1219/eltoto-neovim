@@ -29,6 +29,8 @@ local function render_plaintext()
         lines[#lines + 1] = ""
     end
 
+    table.remove(lines)
+
     return lines
 end
 

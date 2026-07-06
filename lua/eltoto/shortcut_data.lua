@@ -199,15 +199,9 @@ M.sections = {
             "A git hunk is one contiguous changed block in the current file compared with Git.",
         },
         entries = {
-            { lhs = ":Git",      desc = "open Fugitive git status" },
-            { lhs = "]h",        desc = "jump to the next git hunk" },
-            { lhs = "[h",        desc = "jump to the previous git hunk" },
-            { lhs = "<leader>m", desc = "add current file to Harpoon" },
-            { lhs = "<C-e>",     desc = "toggle Harpoon quick menu" },
-            { lhs = "<C-h>",     desc = "jump to Harpoon file 1" },
-            { lhs = "<C-j>",     desc = "jump to Harpoon file 2" },
-            { lhs = "<C-k>",     desc = "jump to Harpoon file 3" },
-            { lhs = "<C-l>",     desc = "jump to Harpoon file 4" },
+            { lhs = ":Git", desc = "open Fugitive git status" },
+            { lhs = "]h",   desc = "jump to the next git hunk" },
+            { lhs = "[h",   desc = "jump to the previous git hunk" },
         },
     },
     {

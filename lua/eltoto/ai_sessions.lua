@@ -658,16 +658,20 @@ function M.setup()
                 local was_failed_resume = event.buf == M._autostart_buf
                     and M._autostart_spawn_time ~= nil
                     and (os.time() - M._autostart_spawn_time) < 5
-                M._autostart_buf = nil
-                M._autostart_spawn_time = nil
+                local key = buffers[event.buf]
+                local failed_kind = was_failed_resume and entries[key] and entries[key].kind or nil
+                if event.buf == M._autostart_buf then
+                    M._autostart_buf = nil
+                    M._autostart_spawn_time = nil
+                end
 
                 forget_buffer(event.buf, true)
 
                 if was_failed_resume then
                     pcall(vim.api.nvim_buf_delete, event.buf, { force = true })
-                    if vim.fn.executable("claude") == 1 then
+                    if failed_kind and vim.fn.executable(failed_kind) == 1 then
                         vim.defer_fn(function()
-                            local bufnr = M.open("claude")
+                            local bufnr = M.open(failed_kind)
                             if bufnr then
                                 vim.defer_fn(function()
                                     if vim.api.nvim_buf_is_valid(bufnr) then
