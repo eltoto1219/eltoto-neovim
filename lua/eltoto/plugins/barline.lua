@@ -121,7 +121,7 @@ return {
               },
               sections = {
                 lualine_a = {'mode', 'FugitiveHead'},
-                lualine_b = {'branch', 'diff'},
+                lualine_b = {'diff'},
                 lualine_c = {'filename',
                             {
                                 require("noice").api.statusline.mode.get,
@@ -172,7 +172,7 @@ return {
               },
               tabline = {
                         lualine_a = { tabline.component },
-                        lualine_b = {'branch'},
+                        lualine_b = {},
                         lualine_x = {},
                         lualine_y = {},
                         lualine_z = {{
