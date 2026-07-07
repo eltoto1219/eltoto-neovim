@@ -1,6 +1,6 @@
 return {
     {
-        dir = vim.fs.normalize("~/projects/plugins/whisper-dictation.nvim"),
+        "eltoto1219/whisper-dictation.nvim",
         keys = {
             {
                 "<leader>v",
