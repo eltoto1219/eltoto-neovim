@@ -31,7 +31,7 @@ AI Harness Sessions
 - [a / ]a : in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode; also works from terminal input mode
 - :Claude : open a new Claude Code session in a terminal buffer
 - :Codex : open a new Codex session in a terminal buffer
-- :AIRestore : restore the cached AI harness sessions born in the current directory
+- :AISessionRestore : restore the cached AI harness sessions born in the current directory
 
 Voice Dictation
 - Recording uses arecord; transcription runs locally with faster-whisper from the repo venv, using the 'medium' model on GPU or 'base' on CPU.

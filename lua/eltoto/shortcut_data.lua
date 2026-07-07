@@ -40,7 +40,7 @@ M.sections = {
             { lhs = "[a / ]a", desc = "in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode; also works from terminal input mode" },
             { lhs = ":Claude", desc = "open a new Claude Code session in a terminal buffer" },
             { lhs = ":Codex", desc = "open a new Codex session in a terminal buffer" },
-            { lhs = ":AIRestore", desc = "restore the cached AI harness sessions born in the current directory" },
+            { lhs = ":AISessionRestore", desc = "restore the cached AI harness sessions born in the current directory" },
         },
     },
     {

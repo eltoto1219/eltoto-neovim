@@ -18,8 +18,9 @@ return {
                     },
                 },
             },
-            -- keep the pre-extraction prefix so existing shpool sessions attach
-            processes = { enabled = true, session_prefix = "eltoto-process-" },
+            -- note: sessions created under an older prefix (eltoto-process-*)
+            -- are invisible to the picker until renamed or killed in shpool
+            processes = { enabled = true, session_prefix = "proc-" },
             treehouse = {
                 enabled = true,
                 mappings = {
