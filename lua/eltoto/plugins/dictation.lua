@@ -1,6 +1,8 @@
 return {
     {
         "eltoto1219/whisper-dictation.nvim",
+        -- eager: costs ~nothing and keeps :checkhealth working before first use
+        lazy = false,
         keys = {
             {
                 "<leader>v",
