@@ -7,7 +7,9 @@ Add only what saves tokens or time later; corrections from Antonio go here so th
 
 - The leader key is "w" (`vim.g.mapleader = "w"`), so `<leader>t` means `wt`.
 - Antonio renames keybinds himself between sessions; always grep `remap.lua` for the current binding instead of trusting docs or past conversations.
-- Some of Antonio's machines have no root; every dependency in `scripts/setup.sh` must install user-locally (see rustup/cargo, shpool, brew clone, npm --prefix patterns already there) and degrade with a `warn` instead of failing.
+- Some of Antonio's machines have no root; every dependency in `scripts/setup.sh` and `scripts/agent_setup.sh` must install user-locally (see rustup/cargo, shpool, brew clone, npm --prefix, Go tarball patterns already there) and degrade with a `warn` instead of failing.
+- Setup is split: `scripts/setup.sh` = editor stack (nvim, python, shpool, brew, fonts), `scripts/agent_setup.sh` = agent stack (codex, claude, logins, skills, axi, no-mistakes, treehouse); shared helpers live in `scripts/lib.sh` (sourced, not executed). setup.sh calls agent_setup.sh at the end; both are idempotent.
+- `agent/` holds canonical copies of the live agent files (`~/.claude/CLAUDE.md`, `~/OPINIONS.md`, `~/VOICE.md`, `~/.no-mistakes/config.yaml`) plus `motive-skills.txt` (the Motive skill set setup installs). Live files are the source of truth: run `scripts/agent_sync.sh` to copy them back into `agent/`; `check.sh` warns on drift and on skills no setup source covers. `~/AGENTS.md` and `~/.codex/AGENTS.md` are symlinks to `~/.claude/CLAUDE.md`.
 - `SHORTCUTS.txt` and the README shortcuts section are generated: edit `lua/eltoto/shortcut_data.lua`, then run `nvim --headless "+ShortcutsSync" "+qa"`.
 - After changes run `./scripts/check.sh` from the repo root; it must pass.
 - GNOME Terminal with scrollback-lines=10000 is the sizing reference for anything scrollback related.

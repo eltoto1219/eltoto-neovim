@@ -5,52 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="$ROOT_DIR/.venv"
 REQS_FILE="$ROOT_DIR/reqs.txt"
 FONT_SCRIPT="$ROOT_DIR/scripts/font_setup.sh"
-OS_NAME="$(uname -s)"
 PACKAGE_MANAGER=""
 PYTHON_BIN=""
 INSTALL_ALL_DEPENDENCIES=0
 
-warn() {
-    printf 'warning: %s\n' "$1" >&2
-}
-
-fail() {
-    printf 'error: %s\n' "$1" >&2
-    exit 1
-}
-
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-refresh_shell() {
-    hash -r
-}
-
-default_shell_name() {
-    local shell_path="${SHELL:-}"
-
-    if [[ -n "$shell_path" ]]; then
-        basename "$shell_path"
-        return
-    fi
-
-    case "$OS_NAME" in
-        Darwin) echo "zsh" ;;
-        *) echo "bash" ;;
-    esac
-}
-
-shell_rc_file() {
-    local shell_name
-    shell_name="$(default_shell_name)"
-
-    case "$shell_name" in
-        zsh) echo "$HOME/.zshrc" ;;
-        bash) echo "$HOME/.bashrc" ;;
-        *) echo "$HOME/.profile" ;;
-    esac
-}
+source "$ROOT_DIR/scripts/lib.sh"
 
 ensure_openai_api_key_placeholder() {
     local rc_file
@@ -80,28 +39,6 @@ ensure_openai_api_key_placeholder() {
     } >>"$rc_file"
 
     echo "Added OPENAI_API_KEY placeholder to $rc_file"
-}
-
-ensure_local_bin_on_path() {
-    local local_bin="${HOME}/.local/bin"
-    local rc_file
-
-    rc_file="$(shell_rc_file)"
-    mkdir -p "$local_bin"
-
-    case ":$PATH:" in
-        *":${local_bin}:"*) ;;
-        *) export PATH="${local_bin}:$PATH" ;;
-    esac
-
-    touch "$rc_file"
-    if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$rc_file"; then
-        {
-            printf '\n# User-local executables for Neovim AI tooling\n'
-            printf 'export PATH="$HOME/.local/bin:$PATH"\n'
-        } >>"$rc_file"
-        echo "Added ~/.local/bin to PATH in $rc_file"
-    fi
 }
 
 ensure_vi_mode_in_shell_rcs() {
@@ -282,26 +219,6 @@ maybe_run_copilot_setup() {
 
     echo "Opening Neovim for Copilot setup"
     nvim "+Copilot setup"
-}
-
-install_npm_global_local() {
-    npm install -g --prefix "${HOME}/.local" "$@"
-}
-
-ensure_codex() {
-    if command_exists codex; then
-        echo "codex is already installed."
-        return
-    fi
-
-    if ! command_exists npm; then
-        warn "npm is not installed; skipping codex installation"
-        return
-    fi
-
-    ensure_local_bin_on_path
-    echo "Installing codex"
-    install_npm_global_local @openai/codex
 }
 
 detect_package_manager() {
@@ -494,30 +411,6 @@ tool_label() {
         curl_or_wget) echo "curl or wget" ;;
         compiler) echo "gcc or clang" ;;
         *) echo "$tool" ;;
-    esac
-}
-
-prompt_yes_no() {
-    local message="$1"
-    local reply
-
-    if [[ ! -t 0 ]]; then
-        echo "no"
-        return 0
-    fi
-
-    read -r -p "$message [Y/n/a] " reply
-
-    case "$reply" in
-        ""|y|Y|yes|YES|Yes)
-            echo "yes"
-            ;;
-        a|A|all|ALL|All)
-            echo "all"
-            ;;
-        *)
-            echo "no"
-            ;;
     esac
 }
 
@@ -737,13 +630,15 @@ fi
 if command -v nvim >/dev/null 2>&1; then
     echo "Syncing Neovim plugins"
     nvim --headless "+Lazy! sync" "+qa"
-    ensure_codex
     echo "Installing Mason packages"
     nvim --headless "+MasonInstall lua-language-server" "+qa"
     maybe_run_copilot_setup
 else
     warn "Neovim is not installed; skipping plugin sync and Mason install"
 fi
+
+echo "Setting up the AI agent stack"
+"$ROOT_DIR/scripts/agent_setup.sh"
 
 cat <<EOF
 Bootstrap complete.

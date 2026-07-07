@@ -20,4 +20,7 @@ nvim --headless "+lua for _, cmd in ipairs({':AIStatus', ':EltotoHealth', ':Shor
 echo "Checking plugin modules"
 nvim --headless "+lua assert(pcall(require, 'telescope'))" "+qa"
 
+echo "Checking agent template drift (warnings only)"
+./scripts/agent_sync.sh --check
+
 echo "All checks passed"

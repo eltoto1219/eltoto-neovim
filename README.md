@@ -150,8 +150,27 @@ The setup script will:
 - add `~/.local/bin` to your shell `PATH` when needed for user-local AI tooling
 - install Hack Nerd Font into your user font directory
 - sync plugins with `lazy.nvim`
-- install `codex` globally into `~/.local` through `npm` when it is missing
 - install `lua-language-server` through Mason
+- run `scripts/agent_setup.sh` to install and configure the AI agent stack
+
+`scripts/agent_setup.sh` also runs standalone and is idempotent.
+It installs everything user-locally (no root) and degrades with warnings, covering:
+
+- Node.js via user-local brew when `npm`/`npx` are missing
+- a user-local Go toolchain (needed to build no-mistakes)
+- `codex` (npm, `~/.local`) and `claude` (official installer, `~/.local/bin`)
+- `gh` via brew, plus interactive `claude auth login`, `codex login`, and `gh auth login` when a terminal is attached and you are not logged in yet
+- agent instructions: seeds `~/.claude/CLAUDE.md`, `~/OPINIONS.md`, and `~/VOICE.md` from `agent/` (with append/overwrite/keep prompts when they differ) and symlinks `~/AGENTS.md` and `~/.codex/AGENTS.md` to `~/.claude/CLAUDE.md`
+- the `ponytail` Claude plugin (marketplace `DietrichGebert/ponytail`)
+- skills: `skill-creator` (from `anthropics/skills`), `find-skills` (from `vercel-labs/skills`), and every Motive skill listed in `agent/motive-skills.txt` (private repo, needs `gh` auth; installed as plain file copies)
+- the axi CLIs (`gh-axi`, `chrome-devtools-axi`, plus any other `*axi*` skill already installed) via user-local npm, refreshing their bundled agent skills into `~/.claude/skills`
+- no-mistakes from the `eltoto1219/no-mistakes` fork: clone-or-pull into `~/.local/share/no-mistakes`, `make install`, symlink into `~/.local/bin`, remove stale binaries from older installs, and seed `~/.no-mistakes/config.yaml` from `agent/no-mistakes.config.yaml`
+- `treehouse` via its upstream install script
+
+It ends with a doctor summary of every component so a fresh machine can be verified at a glance.
+
+The live agent files are the source of truth; when you edit `~/.claude/CLAUDE.md`, `~/OPINIONS.md`, `~/VOICE.md`, or `~/.no-mistakes/config.yaml`, run `scripts/agent_sync.sh` to copy them back into `agent/` and commit.
+`scripts/check.sh` warns (without failing) when the templates have drifted or when an installed skill is not covered by any setup source.
 
 ## 🐍 Python Environment
 
@@ -192,7 +211,7 @@ It also installs `shpool` (via a user-local rustup/cargo, no root required) to b
 
 On Linux it installs Homebrew user-locally (cloned to `~/.linuxbrew`, no root required) and adds `brew shellenv` to your shell rc. Note: the non-default prefix means some brew packages compile from source instead of using prebuilt bottles.
 
-Treehouse is an optional external dependency and is not installed by `scripts/setup.sh`. Install the `treehouse` executable using the [upstream instructions](https://github.com/kunchenguid/treehouse#install) and ensure it is on Neovim's `PATH` to use the workspace mappings.
+Treehouse is installed by `scripts/agent_setup.sh` via the [upstream install script](https://github.com/kunchenguid/treehouse#install) when the `treehouse` executable is missing.
 
 ## 🌳 Treehouse Workspaces
 
