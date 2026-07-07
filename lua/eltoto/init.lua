@@ -4,14 +4,10 @@ vim.g.mapleader = "w"
 --require('dap-python').setup('~/ml/bin/python')
 -- require("eltoto.packer")
 require("eltoto.lazy")
-require("eltoto.buffers").setup()
-require("eltoto.terminal").setup()
-require("eltoto.ai_sessions").setup()
 require("eltoto.remap")
 require("eltoto.set")
 require("eltoto.autocmd")
 require("eltoto.ui.windows").setup()
-require("eltoto.treehouse").setup()
 
 vim.o.background = "dark"
 vim.opt.nu = true

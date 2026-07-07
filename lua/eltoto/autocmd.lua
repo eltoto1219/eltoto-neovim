@@ -1,54 +1,7 @@
-local term_group = vim.api.nvim_create_augroup("EltotoTerminal", { clear = true })
 local whitespace_group = vim.api.nvim_create_augroup("EltotoWhitespace", { clear = true })
 local filetype_group = vim.api.nvim_create_augroup("EltotoFiletypes", { clear = true })
--- Must stay in sync with the default background color nvim reports to
--- :terminal apps via OSC 11 (hardcoded black, not configurable). TUIs like
--- codex derive subtle highlights from the reported color; if the painted
--- background differs, those highlights can become invisible (codex's input
--- band is exactly #1e1e1e, the previous value of this variable).
-local terminal_bg = 0x000000
-
-local function set_terminal_highlights()
-    local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
-    local normal_nc = vim.api.nvim_get_hl(0, { name = "NormalNC", link = false })
-    local end_of_buffer = vim.api.nvim_get_hl(0, { name = "EndOfBuffer", link = false })
-
-    vim.api.nvim_set_hl(0, "EltotoTerminalNormal", {
-        fg = normal.fg,
-        bg = terminal_bg,
-    })
-    vim.api.nvim_set_hl(0, "EltotoTerminalNormalNC", {
-        fg = normal_nc.fg or normal.fg,
-        bg = terminal_bg,
-    })
-    vim.api.nvim_set_hl(0, "EltotoTerminalEndOfBuffer", {
-        fg = end_of_buffer.fg or terminal_bg,
-        bg = terminal_bg,
-    })
-end
-
-local function apply_terminal_window_style(winid)
-    if not vim.api.nvim_win_is_valid(winid) then
-        return
-    end
-
-    vim.wo[winid].winhighlight = table.concat({
-        "Normal:EltotoTerminalNormal",
-        "NormalNC:EltotoTerminalNormalNC",
-        "EndOfBuffer:EltotoTerminalEndOfBuffer",
-    }, ",")
-end
-
-local function clear_terminal_window_style(winid)
-    if not vim.api.nvim_win_is_valid(winid) then
-        return
-    end
-
-    local current = vim.wo[winid].winhighlight or ""
-    if current:find("EltotoTerminal", 1, true) then
-        vim.wo[winid].winhighlight = ""
-    end
-end
+-- Terminal styling autocmds (numbers, insert mode, painted background) moved
+-- to aiterm.nvim (opts.terminal.style).
 
 local function strip_trailing_whitespace()
     local view = vim.fn.winsaveview()
@@ -76,50 +29,6 @@ vim.api.nvim_create_autocmd({ "BufNewFile", "BufRead" }, {
     pattern = "*.jsx",
     callback = function()
         vim.bo.filetype = "javascript.jsx"
-    end,
-})
-
-vim.api.nvim_create_autocmd({ "ColorScheme", "VimEnter" }, {
-    group = term_group,
-    callback = set_terminal_highlights,
-})
-
-vim.api.nvim_create_autocmd({ "TermOpen", "TermEnter", "BufEnter" }, {
-    group = term_group,
-    pattern = "term://*",
-    callback = function()
-        vim.wo.relativenumber = false
-        vim.wo.number = false
-        vim.opt_local.signcolumn = "no"
-        apply_terminal_window_style(vim.api.nvim_get_current_win())
-    end,
-})
-
-vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
-    group = filetype_group,
-    pattern = "*",
-    callback = function(event)
-        if vim.bo[event.buf].buftype == "" then
-            clear_terminal_window_style(vim.api.nvim_get_current_win())
-            vim.wo.number = true
-            vim.wo.relativenumber = true
-        end
-    end,
-})
-
-vim.api.nvim_create_autocmd("BufLeave", {
-    group = term_group,
-    pattern = "term://*",
-    callback = function()
-        vim.cmd.stopinsert()
-    end,
-})
-
-vim.api.nvim_create_autocmd("BufEnter", {
-    group = term_group,
-    pattern = "term://*",
-    callback = function()
-        vim.cmd.startinsert()
     end,
 })
 

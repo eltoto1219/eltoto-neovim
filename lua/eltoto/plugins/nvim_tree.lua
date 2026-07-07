@@ -28,7 +28,7 @@ return {
             end
 
             local function set_tree_highlights()
-                local colors = require("eltoto.ui.colors")
+                local colors = require("aiterm.ui.colors")
                 local normal = colors.get_hl("Normal")
                 local normal_nc = colors.get_hl("NormalNC")
                 vim.api.nvim_set_hl(0, "NvimTreeWinSeparator", { link = "WinSeparator" })

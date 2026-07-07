@@ -3,9 +3,9 @@ return {
     'nvim-lualine/lualine.nvim',
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     config = function ()
-        local tabline = require("eltoto.ui.tabline")
-        local processes = require("eltoto.processes")
-        local colors = require("eltoto.ui.colors")
+        local tabline = require("aiterm.tabline")
+        local processes = require("aiterm.processes")
+        local colors = require("aiterm.ui.colors")
         tabline.setup_highlights()
         tabline.register_autocmds()
 
@@ -122,7 +122,7 @@ return {
               sections = {
                 lualine_a = {'mode', {
                     function()
-                        local branch = require("eltoto.treehouse").current_buf_branch()
+                        local branch = require("aiterm.treehouse").current_buf_branch()
                         return branch or vim.fn.FugitiveHead()
                     end,
                     icon = "",
@@ -138,7 +138,7 @@ return {
                             }
                         },
                 lualine_x = {'encoding', 'fileformat', 'filetype',
-                            require("eltoto.treehouse").statusline,
+                            require("aiterm.treehouse").statusline,
                             {
                                 function()
                                     return "SHPOOL"
@@ -217,7 +217,7 @@ return {
 
         local head_watchers = {}
         local function watch_git_head(event)
-            local treehouse = require("eltoto.treehouse")
+            local treehouse = require("aiterm.treehouse")
             local workspace_path = treehouse.current_buf_workspace_path(event.buf)
             local git_dir = workspace_path
                 and vim.fn.FugitiveExtractGitDir(workspace_path .. "/.")

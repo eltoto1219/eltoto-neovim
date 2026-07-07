@@ -1,10 +1,10 @@
 local map = vim.keymap.set
 local map_opts = { silent = true }
-local buffers = require("eltoto.buffers")
-local processes = require("eltoto.processes")
-local terminal = require("eltoto.terminal")
-local ai_sessions = require("eltoto.ai_sessions")
-local run = require("eltoto.run")
+local buffers = require("aiterm.buffers")
+local processes = require("aiterm.processes")
+local terminal = require("aiterm.terminal")
+local ai_sessions = require("aiterm.ai")
+local run = require("aiterm.run")
 
 local function termcodes(keys)
     return vim.api.nvim_replace_termcodes(keys, true, false, true)

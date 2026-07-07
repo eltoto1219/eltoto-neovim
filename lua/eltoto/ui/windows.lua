@@ -1,5 +1,5 @@
 local M = {}
-local colors = require("eltoto.ui.colors")
+local colors = require("aiterm.ui.colors")
 local augroup = nil
 
 local function separator_color()

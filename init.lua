@@ -12,8 +12,6 @@ require('eltoto')
 require("eltoto.ai").register()
 require("eltoto.debug").register()
 require("eltoto.health").register()
-require("eltoto.processes").setup()
-require("eltoto.run").register()
 require("eltoto.shortcuts").register()
 
 local function inspect_lsp_client()
