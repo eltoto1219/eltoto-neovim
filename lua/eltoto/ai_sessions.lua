@@ -600,6 +600,74 @@ local function forget_buffer(bufnr, remove_entry)
     end
 end
 
+-- Kills the AI buffer's process, wipes the buffer, and drops the session from
+-- the registry (a kill is permanent, unlike qq which keeps it restorable).
+local function kill_buffer(bufnr)
+    local label = terminal.label_for_buf(bufnr) or vim.fs.basename(vim.api.nvim_buf_get_name(bufnr))
+
+    if bufnr == vim.api.nvim_get_current_buf() then
+        local target = require("eltoto.buffers").get_edit_return_buf()
+        if target then
+            pcall(vim.api.nvim_set_current_buf, target)
+        end
+    end
+
+    forget_buffer(bufnr, true)
+    if vim.api.nvim_buf_is_valid(bufnr) then
+        pcall(vim.cmd.bwipeout, { args = { tostring(bufnr) }, bang = true })
+    end
+
+    return label
+end
+
+-- <leader>nk: kill the current AI buffer, or pick a live one when the current
+-- buffer is not a registered AI session. Mirrors
+-- processes.kill_current_or_select. Workspace agents are not registered here;
+-- they are shpool sessions and belong to <leader>pk.
+function M.kill_current_or_select()
+    local current = vim.api.nvim_get_current_buf()
+    if buffers[current] then
+        vim.notify("Killed AI session '" .. kill_buffer(current) .. "'")
+        return
+    end
+
+    local live = live_ai_buffers()
+    if #live == 0 then
+        vim.notify("No AI harness sessions open", vim.log.levels.INFO)
+        return
+    end
+
+    local labels = {}
+    for i, bufnr in ipairs(live) do
+        local label = terminal.label_for_buf(bufnr) or vim.fs.basename(vim.api.nvim_buf_get_name(bufnr))
+        labels[i] = string.format("%2d. %s", i, label)
+    end
+
+    require("eltoto.ui.picker").select("Kill AI session:", labels, function(index)
+        local bufnr = live[index]
+        if M.is_ai_buffer(bufnr) then
+            vim.notify("Killed AI session '" .. kill_buffer(bufnr) .. "'")
+        end
+    end)
+end
+
+-- <leader>nK: kill every live AI buffer. Cached (non-live) sessions are not
+-- running anything and stay restorable.
+function M.kill_all()
+    local live = live_ai_buffers()
+    if #live == 0 then
+        vim.notify("No AI harness sessions open", vim.log.levels.INFO)
+        return
+    end
+
+    local names = {}
+    for _, bufnr in ipairs(live) do
+        names[#names + 1] = kill_buffer(bufnr)
+    end
+
+    vim.notify("Killed AI sessions: " .. table.concat(names, ", "))
+end
+
 local function should_autostart()
     return vim.fn.argc() == 0
         and #vim.api.nvim_list_uis() > 0

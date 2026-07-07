@@ -363,10 +363,12 @@ AI Harness Sessions
 - Quitting the harness process (Ctrl-C at its prompt) closes the buffer and drops the session from the cache; closing the buffer with qq keeps the session cached and restorable. Ctrl-C mid-turn just interrupts the harness.
 - Running plain vim with no file arguments restores the cached sessions born in the current directory with the most recent focused, or starts a fresh Claude session there if none exist.
 - If a cached session can no longer be resumed, it is removed and replaced with a fresh session of the same harness in the original working directory.
-- <leader>m, <leader>M, and <leader>n also work from terminal input mode (including AI buffers).
+- <leader>m, <leader>M, <leader>nn, <leader>nk, and <leader>nK also work from terminal input mode (including AI buffers).
 - `<leader>m`: toggle between the current buffer and the last AI buffer; offers a Claude/Codex picker when none are open
 - `<leader>M`: pick Claude or Codex and open a new AI session buffer
-- `<leader>n`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
+- `<leader>nn`: open a picker of AI sessions, named as in the tabline: open ones switch, cached ones are marked and resume on selection
+- `<leader>nk`: kill the current AI buffer, or select an open one to kill; kills drop the session from the cache
+- `<leader>nK`: kill all open AI buffers at once (cached sessions stay restorable)
 - `AI buffers`: get their own tabline group, separate from plain terminal buffers
 - `[a / ]a`: in AI and persistent buffers: jump to the previous / next prompt line (❯, ›, or >); ]a past the last one moves to the live input while staying in normal mode; also works from terminal input mode
 - `:Claude`: open a new Claude Code session in a terminal buffer
