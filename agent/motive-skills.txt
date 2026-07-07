@@ -1,0 +1,18 @@
+# Motive skills installed by scripts/agent_setup.sh from KeepTruckin/motive-agent-skills.
+# One name per line; keep in sync via scripts/agent_sync.sh (it warns about unmanaged skills).
+atlassian-mcp-setup
+CHANGE-ticket-from-jira
+eld-snowflake-schema
+epic-code-summary
+epic-doc-summary
+gated-code-learning
+gated-code-review
+github-mcp-setup-linux
+jira-milestone-generator-from-tdd
+lbb-create-jira
+lbb-snowflake-query
+motive-deep-review
+motive-skill-manager
+redash
+snowflake-mcp-setup
+strategy-council
