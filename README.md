@@ -65,6 +65,9 @@ This project turns Neovim into a portable personal workbench with:
 - bootstrap scripts for fonts, dependencies, Mason installs, Python setup, and plugin sync
 - a health command and a check script so the setup can verify itself after changes or on a fresh machine
 
+The terminal, AI-session, persistent-process, treehouse, and run-current-file machinery now lives in the standalone [aiterm.nvim](https://github.com/eltoto1219/aiterm.nvim) plugin, and voice dictation in [whisper-dictation.nvim](https://github.com/eltoto1219/whisper-dictation.nvim).
+This config consumes them like any other plugin and layers its keymaps on top; see `lua/eltoto/plugins/aiterm.lua` and `lua/eltoto/plugins/dictation.lua` for the opts in use.
+
 ## 🔥 Why This Is Awesome
 
 This repo is strong because it is not just a Neovim config. It is an opinionated working system.
