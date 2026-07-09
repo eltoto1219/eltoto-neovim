@@ -53,26 +53,45 @@ shell_rc_file() {
     esac
 }
 
-ensure_local_bin_on_path() {
-    local local_bin="${HOME}/.local/bin"
-    local rc_file
+shell_path_literal() {
+    local path="$1"
+    printf '%s\n' "${path/#$HOME/\$HOME}"
+}
 
-    rc_file="$(shell_rc_file)"
-    mkdir -p "$local_bin"
+ensure_path_entry_on_path() {
+    local path_entry="$1"
 
     case ":$PATH:" in
-        *":${local_bin}:"*) ;;
-        *) export PATH="${local_bin}:$PATH" ;;
+        *":${path_entry}:"*) ;;
+        *) export PATH="${path_entry}:$PATH" ;;
     esac
+}
+
+ensure_path_entry_in_rc() {
+    local path_entry="$1"
+    local comment="$2"
+    local rc_file path_literal line
+
+    rc_file="$(shell_rc_file)"
+    path_literal="$(shell_path_literal "$path_entry")"
+    line="export PATH=\"${path_literal}:\$PATH\""
 
     touch "$rc_file"
-    if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$rc_file"; then
+    if ! grep -Fq "$line" "$rc_file"; then
         {
-            printf '\n# User-local executables for Neovim AI tooling\n'
-            printf 'export PATH="$HOME/.local/bin:$PATH"\n'
+            printf '\n# %s\n' "$comment"
+            printf '%s\n' "$line"
         } >>"$rc_file"
-        echo "Added ~/.local/bin to PATH in $rc_file"
+        echo "Added ${path_literal} to PATH in $rc_file"
     fi
+}
+
+ensure_local_bin_on_path() {
+    local local_bin="${HOME}/.local/bin"
+
+    mkdir -p "$local_bin"
+    ensure_path_entry_on_path "$local_bin"
+    ensure_path_entry_in_rc "$local_bin" "User-local executables for Neovim AI tooling"
 }
 
 prompt_yes_no() {
@@ -100,5 +119,35 @@ prompt_yes_no() {
 }
 
 install_npm_global_local() {
-    npm install -g --prefix "${HOME}/.local" "$@"
+    npm install -g --prefix "$(npm_global_prefix)" "$@"
+}
+
+npm_global_prefix() {
+    local prefix
+
+    prefix="$(npm config get prefix 2>/dev/null || true)"
+    case "$prefix" in
+        ""|undefined|null)
+            prefix="${HOME}/.local"
+            ;;
+    esac
+
+    printf '%s\n' "$prefix"
+}
+
+npm_global_bin_dir() {
+    printf '%s/bin\n' "$(npm_global_prefix)"
+}
+
+npm_global_node_modules_dir() {
+    printf '%s/lib/node_modules\n' "$(npm_global_prefix)"
+}
+
+ensure_npm_global_bin_on_path() {
+    local npm_bin
+
+    npm_bin="$(npm_global_bin_dir)"
+    mkdir -p "$npm_bin"
+    ensure_path_entry_on_path "$npm_bin"
+    ensure_path_entry_in_rc "$npm_bin" "User-local npm global executables"
 }

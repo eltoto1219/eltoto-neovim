@@ -325,7 +325,8 @@ ensure_axi() {
 
         # axi packages ship their agent skill inside the npm package; keep the
         # installed copy in sync with the CLI version.
-        local skill_src="$HOME/.local/lib/node_modules/$pkg/skills/$pkg"
+        local skill_src
+        skill_src="$(npm_global_node_modules_dir)/$pkg/skills/$pkg"
         if [[ -d "$skill_src" ]]; then
             mkdir -p "$CLAUDE_SKILLS_DIR"
             rm -rf "${CLAUDE_SKILLS_DIR:?}/$pkg"
@@ -465,6 +466,7 @@ doctor() {
 
 ensure_local_bin_on_path
 ensure_node
+ensure_npm_global_bin_on_path
 ensure_go
 ensure_codex
 ensure_claude

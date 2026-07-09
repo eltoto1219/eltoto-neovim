@@ -150,7 +150,7 @@ The setup script will:
 - install Python packages from `reqs.txt`
 - attempt to pre-download the faster-whisper dictation model selected for the available GPU or CPU
 - add an `OPENAI_API_KEY` placeholder to your shell rc file if neither your current environment nor that rc file already defines it
-- add `~/.local/bin` to your shell `PATH` when needed for user-local AI tooling
+- add `~/.local/bin` and your user-local npm global bin dir to your shell `PATH` when needed for AI tooling
 - install Hack Nerd Font into your user font directory
 - sync plugins with `lazy.nvim`
 - install `lua-language-server` through Mason
@@ -161,12 +161,12 @@ It installs everything user-locally (no root) and degrades with warnings, coveri
 
 - Node.js via user-local brew when `npm`/`npx` are missing
 - a user-local Go toolchain (needed to build no-mistakes)
-- `codex` (npm, `~/.local`) and `claude` (official installer, `~/.local/bin`)
+- `codex` and npm-based agent CLIs in your active user-local npm prefix, plus `claude` (official installer, `~/.local/bin`)
 - `gh` via brew, plus interactive `claude auth login`, `codex login`, and `gh auth login` when a terminal is attached and you are not logged in yet
 - agent instructions: seeds `~/.claude/CLAUDE.md`, `~/OPINIONS.md`, and `~/VOICE.md` from `agent/` (with append/overwrite/keep prompts when they differ) and symlinks `~/AGENTS.md` and `~/.codex/AGENTS.md` to `~/.claude/CLAUDE.md`
 - the `ponytail` Claude plugin (marketplace `DietrichGebert/ponytail`)
 - skills: `skill-creator` (from `anthropics/skills`), `find-skills` (from `vercel-labs/skills`), and every Motive skill listed in `agent/motive-skills.txt` (private repo, needs `gh` auth; installed as plain file copies)
-- the axi CLIs (`gh-axi`, `chrome-devtools-axi`, plus any other `*axi*` skill already installed) via user-local npm, refreshing their bundled agent skills into `~/.claude/skills`
+- the axi CLIs (`gh-axi`, `chrome-devtools-axi`, plus any other `*axi*` skill already installed) via your active user-local npm prefix, refreshing their bundled agent skills into `~/.claude/skills`
 - no-mistakes from the `eltoto1219/no-mistakes` fork: clone-or-pull into `~/.local/share/no-mistakes`, `make install`, symlink into `~/.local/bin`, remove stale binaries from older installs, and seed `~/.no-mistakes/config.yaml` from `agent/no-mistakes.config.yaml`
 - `treehouse` via its upstream install script
 
@@ -306,7 +306,7 @@ This reports:
 - run `:AIStatus`
 - make sure `OPENAI_API_KEY` says `set`
 - make sure `codex` says `ok`
-- if it does not, rerun `./scripts/setup.sh` or open a new shell so `~/.local/bin` is on `PATH`
+- if it does not, rerun `./scripts/setup.sh` or open a new shell so your user-local bin dirs are on `PATH`
 
 </details>
 

@@ -1,61 +1,51 @@
 local map = vim.keymap.set
-local map_opts = { silent = true }
-local buffers = require("aiterm.buffers")
-local processes = require("aiterm.processes")
-local terminal = require("aiterm.terminal")
-local ai_sessions = require("aiterm.ai")
-local run = require("aiterm.run")
 
 local function termcodes(keys)
-    return vim.api.nvim_replace_termcodes(keys, true, false, true)
+	return vim.api.nvim_replace_termcodes(keys, true, false, true)
 end
 
 local function feed_normal(keys)
-    return function()
-        vim.api.nvim_feedkeys(termcodes(keys), "n", false)
-    end
+	return function()
+		vim.api.nvim_feedkeys(termcodes(keys), "n", false)
+	end
 end
 
 local function window_move(direction)
-    return function()
-        vim.cmd.wincmd(direction)
-    end
+	return function()
+		vim.cmd.wincmd(direction)
+	end
 end
 
 local function split_vertical()
-    vim.cmd.vsplit()
+	vim.cmd.vsplit()
 end
 
 local function split_horizontal()
-    vim.cmd.split()
+	vim.cmd.split()
 end
 
 local function only_window()
-    vim.cmd.only()
+	vim.cmd.only()
 end
 
 local function write_file()
-    local ok, err = pcall(vim.cmd, "write!")
-    if not ok then
-        vim.notify(err, vim.log.levels.ERROR)
-        return
-    end
+	local ok, err = pcall(vim.cmd, "write!")
+	if not ok then
+		vim.notify(err, vim.log.levels.ERROR)
+		return
+	end
 
-    vim.api.nvim_echo({ { "wrote", "ModeMsg" } }, false, {})
+	vim.api.nvim_echo({ { "wrote", "ModeMsg" } }, false, {})
 end
 
 local function resize_height(delta)
-    return function()
-        local amount = (delta > 0 and "+" or "") .. tostring(delta)
-        vim.cmd("resize " .. amount)
-    end
+	return function()
+		local amount = (delta > 0 and "+" or "") .. tostring(delta)
+		vim.cmd("resize " .. amount)
+	end
 end
 
-map("n", "<leader>,", buffers.backward, { silent = true, desc = "Previous file buffer" })
-map("n", "<leader>;", buffers.forward, { silent = true, desc = "Next file buffer" })
-map("n", "qq", buffers.quit_current_or_window, { silent = true, desc = "Close window, buffer, or quit" })
 map("n", "qa", "<cmd>silent! q!<CR>", { silent = true, desc = "Force quit window" })
-map("n", "<leader>y", buffers.alternate, { silent = true, desc = "Alternate file buffer" })
 map("n", "<leader>w", write_file, { silent = true, desc = "Write file" })
 map("n", "<C-z>", "<nop>", { silent = true, desc = "Disable suspend" })
 
@@ -74,104 +64,30 @@ map("n", "<leader>l", window_move("l"), { silent = true, desc = "Window right" }
 map("n", "<leader>sv", split_vertical, { silent = true, desc = "Vertical split" })
 map("n", "<leader>sh", split_horizontal, { silent = true, desc = "Horizontal split" })
 map("n", "<leader>o", only_window, { silent = true, desc = "Only current window" })
-map("n", [[<leader>"]], feed_normal([[ciw""<Esc>P<Esc>]]),
-    { silent = true, desc = "Quote current word with double quotes" })
-map("n", "<leader>'", feed_normal([[ciw''<Esc>P<Esc>]]),
-    { silent = true, desc = "Quote current word with single quotes" })
+map(
+	"n",
+	[[<leader>"]],
+	feed_normal([[ciw""<Esc>P<Esc>]]),
+	{ silent = true, desc = "Quote current word with double quotes" }
+)
+map(
+	"n",
+	"<leader>'",
+	feed_normal([[ciw''<Esc>P<Esc>]]),
+	{ silent = true, desc = "Quote current word with single quotes" }
+)
 map("n", "<leader>c", "za", { silent = true, desc = "Toggle fold" })
 map("n", "gu", "g~wi<Esc>", { silent = true, desc = "Swap case of current word" })
 map("n", "gU", "g~Wi<Esc>", { silent = true, desc = "Swap case of current WORD" })
 map("n", [[W"]], feed_normal([[ciW""<Esc>P]]), { silent = true, desc = "Quote current WORD with double quotes" })
 map("n", "W'", feed_normal([[ciW''<Esc>P]]), { silent = true, desc = "Quote current WORD with single quotes" })
 map("n", "<space>", function()
-    vim.opt.hlsearch = not vim.opt.hlsearch:get()
+	vim.opt.hlsearch = not vim.opt.hlsearch:get()
 end, { silent = true, desc = "Toggle search highlight" })
-map("n", "<leader>t", terminal.toggle, { silent = true, desc = "Toggle terminal" })
-map("n", "<leader>T", terminal.open_new, { silent = true, desc = "Open new terminal" })
-map("n", "<leader>m", ai_sessions.toggle, { silent = true, desc = "Toggle AI buffer" })
-map("n", "<leader>nn", ai_sessions.pick, { silent = true, desc = "AI session picker" })
-map("n", "<leader>nk", ai_sessions.kill_current_or_select, { silent = true, desc = "Kill AI session" })
-map("n", "<leader>nK", ai_sessions.kill_all, { silent = true, desc = "Kill all AI sessions" })
-map("n", "<leader>M", ai_sessions.new_session, { silent = true, desc = "New AI session" })
-map("n", "<leader>pp", processes.list, { silent = true, desc = "Persistent terminal picker" })
-map("n", "<leader>pn", processes.new, { silent = true, desc = "New persistent terminal" })
-map("n", "<leader>pa", processes.attach_last, { silent = true, desc = "Attach last persistent terminal" })
-map("n", "<leader>pA", processes.attach_all_cwd, { silent = true, desc = "Attach all persistent terminals for cwd" })
-map("n", "<leader>pk", processes.kill_current_or_select, { silent = true, desc = "Kill persistent terminal" })
-map("n", "<leader>pK", processes.kill_all, { silent = true, desc = "Kill all persistent terminals" })
-map("n", "<leader>e", run.exec_current_file, { silent = true, desc = "Run current file" })
 map("n", "<leader>=", resize_height(5), { silent = true, desc = "Increase window height" })
 map("n", "<leader>-", resize_height(-5), { silent = true, desc = "Decrease window height" })
 map("n", "W=", "<C-W>:vert resize +5<CR>", { silent = true, desc = "Increase window width" })
 map("n", "W-", "<C-W>:vert resize -5<CR>", { silent = true, desc = "Decrease window width" })
 
-map("t", "<leader>t", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(terminal.toggle)
-end, { silent = true, desc = "Toggle terminal" })
-map("t", "<leader>T", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(terminal.open_new)
-end, { silent = true, desc = "Open new terminal" })
-map("t", "<leader>m", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(ai_sessions.toggle)
-end, { silent = true, desc = "Toggle AI buffer" })
-map("t", "<leader>nn", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(ai_sessions.pick)
-end, { silent = true, desc = "AI session picker" })
-map("t", "<leader>nk", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(ai_sessions.kill_current_or_select)
-end, { silent = true, desc = "Kill AI session" })
-map("t", "<leader>nK", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(ai_sessions.kill_all)
-end, { silent = true, desc = "Kill all AI sessions" })
-map("t", "<leader>M", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(ai_sessions.new_session)
-end, { silent = true, desc = "New AI session" })
-map("t", "<leader>;", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(terminal.forward)
-end, { silent = true, desc = "Next terminal buffer" })
-map("t", "<leader>,", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(terminal.backward)
-end, { silent = true, desc = "Previous terminal buffer" })
 map("t", "<leader>1", "<C-\\><C-n>:b1 #<CR>", { silent = true, desc = "Go to buffer 1" })
-map("t", "qq", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(buffers.quit_current_or_window)
-end, { silent = true, desc = "Close window, buffer, or quit" })
 map("t", "qa", "<C-\\><C-n><cmd>silent! q!<CR>", { silent = true, desc = "Force quit window" })
-map("t", "<leader>y", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(buffers.alternate)
-end, { silent = true, desc = "Alternate buffer from terminal" })
-map("t", "<leader>pp", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(processes.list)
-end, { silent = true, desc = "Persistent terminal picker" })
-map("t", "<leader>pn", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(processes.new)
-end, { silent = true, desc = "New persistent terminal" })
-map("t", "<leader>pa", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(processes.attach_last)
-end, { silent = true, desc = "Attach last persistent terminal" })
-map("t", "<leader>pA", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(processes.attach_all_cwd)
-end, { silent = true, desc = "Attach all persistent terminals for cwd" })
-map("t", "<leader>pk", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(processes.kill_current_or_select)
-end, { silent = true, desc = "Kill persistent terminal" })
-map("t", "<leader>pK", function()
-    vim.api.nvim_feedkeys(termcodes("<C-\\><C-n>"), "n", false)
-    vim.schedule(processes.kill_all)
-end, { silent = true, desc = "Kill all persistent terminals" })

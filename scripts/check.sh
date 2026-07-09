@@ -12,7 +12,17 @@ echo "Checking Neovim startup"
 nvim --headless "+qa"
 
 echo "Checking core modules"
-nvim --headless "+lua assert(require('eltoto.ai'))" "+lua assert(require('eltoto.buffers'))" "+lua assert(require('eltoto.terminal'))" "+lua assert(require('eltoto.processes'))" "+lua assert(require('eltoto.run'))" "+lua assert(require('eltoto.shortcuts'))" "+qa"
+nvim --headless \
+  "+lua assert(require('eltoto.ai'))" \
+  "+lua assert(require('eltoto.health'))" \
+  "+lua assert(require('eltoto.shortcuts'))" \
+  "+lua assert(require('aiterm'))" \
+  "+lua assert(require('aiterm.buffers'))" \
+  "+lua assert(require('aiterm.terminal'))" \
+  "+lua assert(require('aiterm.processes'))" \
+  "+lua assert(require('aiterm.run'))" \
+  "+lua assert(require('aiterm.ai'))" \
+  "+qa"
 
 echo "Checking registered commands"
 nvim --headless "+lua for _, cmd in ipairs({':AIStatus', ':EltotoHealth', ':Shortcuts', ':ShortcutsSync', ':TerminalConfig', ':TerminalRename', ':TerminalProcesses', ':TerminalProcessNew', ':TerminalProcessKill', ':TerminalProcessAttachLast', ':TerminalProcessAttachAll'}) do assert(vim.fn.exists(cmd) == 2, cmd) end" "+qa"
