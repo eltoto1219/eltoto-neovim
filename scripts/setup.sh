@@ -205,6 +205,44 @@ ensure_brew() {
     refresh_shell
 }
 
+ensure_graphify() {
+    ensure_local_bin_on_path
+
+    if ! command_exists graphify; then
+        if ! command_exists uv; then
+            echo "Installing uv (user-local, needed to install Graphify)"
+            if command_exists curl; then
+                if ! curl -LsSf https://astral.sh/uv/install.sh | sh; then
+                    warn "could not install uv; skipping Graphify install"
+                    return
+                fi
+            else
+                if ! wget -qO- https://astral.sh/uv/install.sh | sh; then
+                    warn "could not install uv; skipping Graphify install"
+                    return
+                fi
+            fi
+            refresh_shell
+        fi
+
+        if ! command_exists uv; then
+            warn "uv is unavailable; skipping Graphify install"
+            return
+        fi
+
+        echo "Installing Graphify"
+        if ! uv tool install graphifyy; then
+            warn "uv tool install graphifyy failed; Graphify navigation will be unavailable"
+            return
+        fi
+        refresh_shell
+    fi
+
+    if ! command_exists graphify || ! graphify --help >/dev/null; then
+        warn "Graphify is unavailable; Graphify navigation will be unavailable"
+    fi
+}
+
 maybe_run_copilot_setup() {
     local choice
 
@@ -632,6 +670,7 @@ ensure_vi_mode_in_shell_rcs
 ensure_vim_alias_in_shell_rcs
 ensure_shpool
 ensure_brew
+ensure_graphify
 
 if [[ -x "$FONT_SCRIPT" ]]; then
     echo "Installing Nerd Font"
